@@ -1,9 +1,5 @@
 output/
 runs/
-*.docx
-*.png
-*.jpg
-*.jpeg
 .env
 __pycache__/
 *.pyc
