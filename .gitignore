@@ -11,3 +11,7 @@ __pycache__/
 .deps/
 tmp/
 .pipeline_state.json
+.vs/
+logs/
+*.log
+*.pid
