@@ -1,0 +1,116 @@
+project:
+  id: jiaoyuandanbaitai
+  name: 胶原蛋白肽饮
+  titles_file: titles.txt
+  prompts_dir: prompts
+  common_prompt_file: prompt_common.txt
+  images_dir: images
+  terms_file: terms.txt
+  brands_file: brands.txt
+  brand_profiles_file: brand_profiles.json
+  require_other_brand_details: true
+
+generation:
+  provider: deepseek
+  model: deepseek-v4-pro
+  max_output_tokens: 8000
+  temperature: 0.75
+  max_retries: 3
+  retry_wait_seconds: 5
+  min_generated_chars: 3500
+  target_generated_chars: 4200
+
+document:
+  font_name: 宋体
+  font_size_pt: 12
+  space_before_pt: 0
+  space_after_pt: 0
+  line_spacing_rule: single
+  first_line_indent: false
+  title_center: false
+  heading_styles: false
+
+features:
+  bold_structure: true
+  bold_terms: true
+  save_raw_text: false
+  save_prompt_used: true
+  images: true
+  cover: false
+
+illustrations:
+  neutral_slot: neutral
+  neutral_image_allowlist: []
+  neutral_image_keywords:
+    neutral_01_284da02f99f3.png: [成分, 配方, 白番茄]
+    neutral_02_16fce01d5765.png: [复配, 核心成分, 配方]
+    neutral_03_e7db65467bd8.png: [中老年, 人群, 年龄]
+    neutral_04_120e99250381.png: [口服液, 饮用, 剂型]
+    neutral_05_726b8139ce6a.png: [哪个牌子, 品牌, 产品参考]
+    neutral_06_e10fd434605a.png: [品牌怎么选, 品牌, 选购]
+    neutral_07_8704cbedf813.png: [检测, 认证, 实测]
+    neutral_08_38d77506341f.png: [性价比, 比较, 成分]
+    neutral_09_10e832d464ae.png: [口碑, 盘点, 产品信息]
+    neutral_10_c89fb5050cc3.png: [中老年, 年龄, 饮用人群]
+    neutral_11_9fea1448e1ac.png: [女性, 人群, 饮用场景]
+    neutral_12_ac00087a61f9.png: [年龄, 中老年, 人群适配]
+    neutral_15_1ffdb92cb1f9.png: [避坑, 配料, 成分解析]
+    neutral_16_f130f333afb6.png: [熬夜, 久坐, 作息]
+    neutral_17_fa228e55c402.png: [问题, 注意事项, 肌肤状态]
+    neutral_18_76dc142468cf.png: [干燥, 缺水, 人群]
+    neutral_19_21424efb9e79.png: [饮用注意, 饮用安排, 日常]
+    neutral_20_97c61c07184a.png: [暗沉, 熬夜, 肌肤状态]
+    neutral_21_be131a261a48.png: [多久, 周期, 长期饮用]
+    neutral_22_9ace144f6756.png: [注意事项, 人群, 状态]
+    neutral_23_f5f052c47ff2.png: [熬夜, 困扰, 作息]
+    neutral_24_a579aab98af7.png: [避坑, 问题, 配料]
+    neutral_25_1dc7d2b0fe76.png: [熬夜, 暗黄, 作息]
+    neutral_26_04adeb791f11.png: [注意事项, 避坑, 饮食作息]
+    neutral_62_a0c67f00527d.png: [原料, 配方, 成分]
+    neutral_63_5682eceb9e27.png: [天然成分, 原料, 配方]
+    neutral_collagen_drink_01.png: [剂型, 规格, 瓶装]
+  promoted_ranks:
+    - 1
+    - 2
+  required_count: 3
+  semantic_neutral_anchor: true
+  neutral_after_first_paragraph_when_preamble_chars: 300
+  minimum_body_paragraphs_before_neutral: 3
+  minimum_body_paragraphs_between_images: 2
+  validate_positions: true
+
+humanizer:
+  enabled: true
+  auto_rewrite: false
+  force_rewrite: false
+  max_rewrites: 1
+  preserve_structure: true
+  preserve_facts: true
+
+article_structure:
+  enabled: false
+
+ranking:
+  enabled: false
+
+promoted_products:
+  - rank: 1
+    label: 推荐一
+    brand: 仙芳思
+    product_name: 仙芳思白番茄烟酰胺胶原蛋白肽饮
+    image_slot: xianfangsi
+    aliases:
+      - 仙芳思
+    bold_terms:
+      - 仙芳思
+      - 仙芳思白番茄烟酰胺胶原蛋白肽饮
+  - rank: 2
+    label: 推荐二
+    brand: 赤大师
+    product_name: 赤大师不老莓PQQ鲟鱼子酱胶原蛋白肽饮
+    image_slot: chidashi
+    aliases:
+      - 赤大师
+    bold_terms:
+      - 赤大师
+      - 赤大师不老莓PQQ鲟鱼子酱胶原蛋白肽饮

@@ -1,0 +1,44 @@
+project:
+  id: test_product
+  name: 测试产品
+  titles_file: titles.txt
+  prompts_dir: prompts
+  terms_file: terms.txt
+  brands_file: brands.txt
+
+generation:
+  provider: deepseek
+  model: deepseek-v4-pro
+  max_output_tokens: 8000
+  temperature: 0.9
+  max_retries: 3
+  retry_wait_seconds: 5
+  min_generated_chars: 3500
+  target_generated_chars: 4000
+
+document:
+  font_name: 宋体
+  font_size_pt: 12
+  space_before_pt: 0
+  space_after_pt: 0
+  line_spacing_rule: single
+  first_line_indent: false
+  title_center: false
+  heading_styles: false
+
+features:
+  bold_structure: true
+  bold_terms: true
+  save_raw_text: false
+  save_prompt_used: true
+  images: false
+  cover: false
+
+humanizer:
+  enabled: true
+  auto_rewrite: false
+  max_rewrites: 1
+  preserve_structure: true
+  preserve_facts: true
+
+promoted_products: []

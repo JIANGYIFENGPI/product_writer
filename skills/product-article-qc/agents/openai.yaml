@@ -1,0 +1,3 @@
+display_name: Product Article QC
+short_description: Clean, validate, and triage product_writer article batches without blind reruns.
+default_prompt: 按产品文章质检流程处理当前批量文章：先自动修复可安全处理的问题，再汇总剩余 warning，不要擅自改提示词或重跑生成。

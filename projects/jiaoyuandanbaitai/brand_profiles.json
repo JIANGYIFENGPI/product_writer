@@ -1,0 +1,281 @@
+[
+  {
+    "brand": "娇小颜",
+    "product_name": "娇小颜烟酰胺胶原蛋白肽饮",
+    "formula": ["鱼胶原蛋白肽", "烟酰胺", "维生素C"],
+    "format": "50mL独立瓶装",
+    "flavor": "白葡萄风味，甜度偏低",
+    "packaging": "细长玻璃瓶",
+    "scene": "午后或晚间固定饮用"
+  },
+  {
+    "brand": "皙禾集",
+    "product_name": "皙禾集胶原蛋白肽口服液",
+    "formula": ["小分子鱼胶原蛋白肽", "针叶樱桃粉"],
+    "format": "30mL小瓶装",
+    "flavor": "淡樱桃风味，酸甜轻",
+    "packaging": "棕色避光瓶",
+    "scene": "通勤包随身携带"
+  },
+  {
+    "brand": "白茉吟",
+    "product_name": "白茉吟烟酰胺胶原蛋白肽饮",
+    "formula": ["鱼胶原蛋白肽", "烟酰胺", "石榴浓缩汁"],
+    "format": "50mL即饮瓶",
+    "flavor": "石榴莓果风味",
+    "packaging": "旋盖PET瓶",
+    "scene": "早餐后或办公室饮用"
+  },
+  {
+    "brand": "烟棠序",
+    "product_name": "烟棠序胶原蛋白肽饮",
+    "formula": ["海洋鱼皮胶原蛋白肽", "弹性蛋白肽"],
+    "format": "60mL独立瓶装",
+    "flavor": "青提风味，入口清爽",
+    "packaging": "磨砂玻璃瓶",
+    "scene": "不喜欢粉剂冲调的人群"
+  },
+  {
+    "brand": "清萃颜",
+    "product_name": "清萃颜胶原蛋白肽口服液",
+    "formula": ["鱼胶原蛋白肽", "透明质酸钠"],
+    "format": "30mL便携装",
+    "flavor": "荔枝风味",
+    "packaging": "轻量塑料瓶",
+    "scene": "出差和短途旅行"
+  },
+  {
+    "brand": "婉皙岚",
+    "product_name": "婉皙岚胶原蛋白肽口服液",
+    "formula": ["鱼胶原蛋白肽", "维生素C", "葡萄籽粉"],
+    "format": "50mL独立瓶装",
+    "flavor": "葡萄风味，酸感明显",
+    "packaging": "深色玻璃瓶",
+    "scene": "偏爱果酸口感的人群"
+  },
+  {
+    "brand": "柠若棠",
+    "product_name": "柠若棠烟酰胺胶原蛋白肽饮",
+    "formula": ["胶原蛋白肽", "烟酰胺", "柠檬浓缩汁"],
+    "format": "40mL小瓶装",
+    "flavor": "柠檬风味，清酸不腻",
+    "packaging": "透明旋盖瓶",
+    "scene": "餐后饮用或夏季冷藏饮用"
+  },
+  {
+    "brand": "笙白纪",
+    "product_name": "笙白纪胶原蛋白肽口服液",
+    "formula": ["鱼胶原蛋白肽", "米糠神经酰胺"],
+    "format": "50mL即饮装",
+    "flavor": "水蜜桃风味",
+    "packaging": "圆角方瓶",
+    "scene": "重视口感、难坚持粉剂的人群"
+  },
+  {
+    "brand": "梵萃兮",
+    "product_name": "梵萃兮胶原蛋白肽口服液",
+    "formula": ["胶原蛋白肽", "酵母抽提物", "维生素C"],
+    "format": "30mL浓缩型小瓶",
+    "flavor": "蓝莓风味",
+    "packaging": "短款玻璃瓶",
+    "scene": "希望单次饮用量较小的人群"
+  },
+  {
+    "brand": "素颜栖",
+    "product_name": "素颜栖胶原蛋白肽口服液",
+    "formula": ["鱼胶原蛋白肽", "弹性蛋白肽", "维生素E"],
+    "format": "50mL独立装",
+    "flavor": "玫瑰葡萄风味",
+    "packaging": "避光玻璃瓶",
+    "scene": "晚间饮用习惯"
+  },
+  {
+    "brand": "沐皙宁",
+    "product_name": "沐皙宁烟酰胺胶原蛋白肽饮",
+    "formula": ["鱼胶原蛋白肽", "烟酰胺", "针叶樱桃粉"],
+    "format": "50mL瓶装",
+    "flavor": "樱桃风味，甜酸平衡",
+    "packaging": "旋盖玻璃瓶",
+    "scene": "办公室常备"
+  },
+  {
+    "brand": "云棠白",
+    "product_name": "云棠白烟酰胺胶原蛋白肽饮",
+    "formula": ["胶原蛋白肽", "烟酰胺", "接骨木莓汁"],
+    "format": "60mL即饮瓶",
+    "flavor": "深莓果风味",
+    "packaging": "深色PET瓶",
+    "scene": "偏爱浓郁莓果口感的人群"
+  },
+  {
+    "brand": "初萃笙",
+    "product_name": "初萃笙胶原蛋白肽口服液",
+    "formula": ["鱼胶原蛋白肽", "维生素C"],
+    "format": "30mL独立瓶装",
+    "flavor": "柚子风味",
+    "packaging": "小口玻璃瓶",
+    "scene": "首次尝试胶原饮、偏好简单配方"
+  },
+  {
+    "brand": "颜汐棠",
+    "product_name": "颜汐棠烟酰胺胶原蛋白肽饮",
+    "formula": ["鱼胶原蛋白肽", "烟酰胺", "血橙粉"],
+    "format": "50mL即饮装",
+    "flavor": "血橙风味，微苦回甘",
+    "packaging": "铝盖玻璃瓶",
+    "scene": "不喜欢过甜饮品的人群"
+  },
+  {
+    "brand": "浅皙禾",
+    "product_name": "浅皙禾胶原蛋白肽饮",
+    "formula": ["胶原蛋白肽", "透明质酸钠", "维生素C"],
+    "format": "50mL瓶装",
+    "flavor": "梨汁风味，味道清淡",
+    "packaging": "透明方瓶",
+    "scene": "偏好轻口味和低存在感风味"
+  },
+  {
+    "brand": "灵梵白",
+    "product_name": "灵梵白胶原蛋白肽口服液",
+    "formula": ["鱼胶原蛋白肽", "鲣鱼弹性蛋白肽"],
+    "format": "30mL浓缩型",
+    "flavor": "青苹果风味",
+    "packaging": "棕色安瓶式小瓶",
+    "scene": "行李空间有限的差旅场景"
+  },
+  {
+    "brand": "棠萃柔",
+    "product_name": "棠萃柔胶原蛋白肽口服液",
+    "formula": ["胶原蛋白肽", "玫瑰花粉", "维生素C"],
+    "format": "50mL即饮瓶",
+    "flavor": "玫瑰荔枝风味",
+    "packaging": "磨砂玻璃瓶",
+    "scene": "重视香气和饮用仪式感"
+  },
+  {
+    "brand": "星颜皙",
+    "product_name": "星颜皙烟酰胺胶原蛋白肽饮",
+    "formula": ["鱼胶原蛋白肽", "烟酰胺", "葡萄籽提取物"],
+    "format": "50mL独立装",
+    "flavor": "黑加仑风味",
+    "packaging": "深紫色玻璃瓶",
+    "scene": "偏爱莓果类口感"
+  },
+  {
+    "brand": "安柠棠",
+    "product_name": "安柠棠胶原蛋白肽口服液",
+    "formula": ["鱼胶原蛋白肽", "柑橘纤维", "维生素C"],
+    "format": "60mL瓶装",
+    "flavor": "柑橘风味，带少量果肉感",
+    "packaging": "宽口PET瓶",
+    "scene": "希望饮品口感更接近果汁"
+  },
+  {
+    "brand": "凝萃婉",
+    "product_name": "凝萃婉胶原蛋白肽饮",
+    "formula": ["胶原蛋白肽", "米糠神经酰胺", "透明质酸钠"],
+    "format": "40mL独立瓶",
+    "flavor": "白桃风味",
+    "packaging": "细口玻璃瓶",
+    "scene": "晚餐后固定饮用"
+  },
+  {
+    "brand": "月笙皙",
+    "product_name": "月笙皙烟酰胺胶原蛋白肽饮",
+    "formula": ["胶原蛋白肽", "烟酰胺", "蔓越莓浓缩汁"],
+    "format": "50mL即饮瓶",
+    "flavor": "蔓越莓风味，酸度偏高",
+    "packaging": "红棕色玻璃瓶",
+    "scene": "喜欢明显酸味的人群"
+  },
+  {
+    "brand": "寻棠白",
+    "product_name": "寻棠白烟酰胺胶原蛋白肽饮",
+    "formula": ["鱼胶原蛋白肽", "烟酰胺", "维生素C", "石榴汁"],
+    "format": "60mL独立装",
+    "flavor": "石榴风味，果味较浓",
+    "packaging": "透明塑料瓶",
+    "scene": "希望一瓶饮用量更足的人群"
+  },
+  {
+    "brand": "语梵颜",
+    "product_name": "语梵颜胶原蛋白肽口服液",
+    "formula": ["鱼胶原蛋白肽", "弹性蛋白肽", "透明质酸钠"],
+    "format": "30mL小瓶装",
+    "flavor": "杨梅风味",
+    "packaging": "深色小玻璃瓶",
+    "scene": "外出就餐后随手饮用"
+  },
+  {
+    "brand": "嘉皙萃",
+    "product_name": "嘉皙萃胶原蛋白肽口服液",
+    "formula": ["胶原蛋白肽", "维生素C", "维生素E"],
+    "format": "50mL瓶装",
+    "flavor": "苹果葡萄风味",
+    "packaging": "轻量PET瓶",
+    "scene": "日常工作日连续饮用"
+  },
+  {
+    "brand": "南柠棠",
+    "product_name": "南柠棠烟酰胺胶原蛋白肽饮",
+    "formula": ["鱼胶原蛋白肽", "烟酰胺", "柠檬汁"],
+    "format": "40mL独立瓶",
+    "flavor": "柠檬青柚风味",
+    "packaging": "磨砂塑料瓶",
+    "scene": "冷藏后饮用、偏好清爽口感"
+  },
+  {
+    "brand": "栖颜白",
+    "product_name": "栖颜白胶原蛋白肽饮",
+    "formula": ["海洋胶原蛋白肽", "弹性蛋白肽"],
+    "format": "50mL即饮装",
+    "flavor": "淡柑橘风味",
+    "packaging": "深色玻璃瓶",
+    "scene": "关注胶原与弹性蛋白组合"
+  },
+  {
+    "brand": "若萃笙",
+    "product_name": "若萃笙胶原蛋白肽饮",
+    "formula": ["鱼胶原蛋白肽", "针叶樱桃粉", "葡萄籽粉"],
+    "format": "60mL瓶装",
+    "flavor": "樱桃葡萄风味",
+    "packaging": "旋盖PET瓶",
+    "scene": "运动后或晚间补充饮品"
+  },
+  {
+    "brand": "舒皙棠",
+    "product_name": "舒皙棠烟酰胺胶原蛋白肽饮",
+    "formula": ["胶原蛋白肽", "烟酰胺", "维生素C"],
+    "format": "30mL浓缩小瓶",
+    "flavor": "蜜桃乌龙风味",
+    "packaging": "棕色玻璃瓶",
+    "scene": "偏好茶感、低甜口感"
+  },
+  {
+    "brand": "锦禾颜",
+    "product_name": "锦禾颜胶原蛋白肽口服液",
+    "formula": ["鱼胶原蛋白肽", "燕窝酸"],
+    "format": "50mL独立瓶",
+    "flavor": "桂花梨风味",
+    "packaging": "圆柱玻璃瓶",
+    "scene": "节日礼赠或家庭常备"
+  },
+  {
+    "brand": "清柠皙",
+    "product_name": "清柠皙胶原蛋白肽口服液",
+    "formula": ["胶原蛋白肽", "柠檬粉", "维生素C"],
+    "format": "50mL即饮瓶",
+    "flavor": "柠檬苏打风味，无气泡",
+    "packaging": "透明PET瓶",
+    "scene": "偏好清新饮料感的人群"
+  },
+  {
+    "brand": "岚棠萃",
+    "product_name": "岚棠萃胶原蛋白肽口服液",
+    "formula": ["鱼胶原蛋白肽", "米糠神经酰胺", "弹性蛋白肽"],
+    "format": "40mL独立装",
+    "flavor": "蓝莓桑葚风味",
+    "packaging": "深蓝色玻璃瓶",
+    "scene": "晚间固定饮用和短途携带"
+  }
+]

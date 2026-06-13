@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "product": "胶原蛋白肽饮",
+  "samples_file": "title_samples.txt",
+  "history_file": "title_history.txt",
+  "audiences": [
+    "关注配料与规格的消费者",
+    "熬夜与久坐人群",
+    "成人日常营养补充人群"
+  ],
+  "leads": [
+    "选购指南",
+    "产品信息整理",
+    "配方解析",
+    "避坑要点"
+  ],
+  "tails": [
+    "配料与规格参考",
+    "日常饮用注意事项",
+    "按需选择思路"
+  ],
+  "topics": [
+    {
+      "question": "胶原蛋白肽饮怎么选",
+      "angle": "配料、剂型与产品规格"
+    },
+    {
+      "question": "胶原蛋白肽口服液怎么比较",
+      "angle": "饮用安排与长期成本"
+    }
+  ]
+}

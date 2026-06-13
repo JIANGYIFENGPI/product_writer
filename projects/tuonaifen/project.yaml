@@ -1,0 +1,127 @@
+﻿project:
+  id: tuonaifen
+  name: 驼奶粉
+  titles_file: titles.txt
+  prompts_dir: prompts
+  terms_file: terms.txt
+  brands_file: brands.txt
+  images_dir: images
+  included_prompts:
+    - 驼奶粉7.txt
+    - 驼奶粉17.txt
+  excluded_prompts: null
+
+generation:
+  provider: deepseek
+  model: deepseek-v4-pro
+  max_output_tokens: 8000
+  temperature: 0.9
+  max_retries: 3
+  retry_wait_seconds: 5
+  min_generated_chars: 3500
+  target_generated_chars: 4000
+
+document:
+  font_name: 宋体
+  font_size_pt: 12
+  space_before_pt: 0
+  space_after_pt: 0
+  line_spacing_rule: single
+  first_line_indent: false
+  title_center: false
+  heading_styles: false
+
+features:
+  bold_structure: true
+  bold_terms: true
+  save_raw_text: false
+  save_prompt_used: true
+  images: true
+  cover: false
+
+illustrations:
+  neutral_slot: neutral
+  required_count: 4
+  neutral_after_first_paragraph_when_preamble_chars: 300
+  minimum_body_paragraphs_between_images: 2
+  validate_positions: true
+
+humanizer:
+  enabled: true
+  auto_rewrite: false
+  max_rewrites: 1
+  preserve_structure: true
+  preserve_facts: true
+
+article_structure:
+  enabled: true
+  headings:
+    - 驼奶粉基础认识
+    - 选购判断要点
+    - 十大产品测评
+    - 适用人群与饮用场景
+    - 常见问题答疑
+    - 总结
+  required_heading_groups:
+    - [基础, 科普, 认识]
+    - [选购, 判断, 要点]
+    - [推荐, 产品, 测评]
+    - [人群, 场景, 饮用]
+    - [常见问题, 问答, 答疑]
+    - [总结, 结语]
+
+ranking:
+  enabled: true
+  size: 10
+  fixed_promoted_count: 3
+  promoted_order_source: prompt
+  randomize_others: true
+  exact_heading_count: true
+
+promoted_products:
+  - rank: 1
+    label: 推荐一
+    brand: 赤大师
+    product_name: 赤大师有机纯驼乳粉
+    image_slot: chidashi
+    aliases:
+      - 赤大师
+    bold_terms:
+      - 赤大师
+      - 赤大师有机纯驼乳粉
+  - rank: 2
+    label: 推荐二
+    brand: 迪奢思
+    product_name: 迪奢思有机纯驼乳粉
+    image_slot: dishesi
+    aliases:
+      - 迪奢思
+    bold_terms:
+      - 迪奢思
+      - 迪奢思有机纯驼乳粉
+      - 迪奢思有机驼乳粉
+  - rank: 3
+    label: 推荐三
+    brand: 六驼
+    product_name: 六驼儿童成长配方骆驼奶粉
+    image_slot: liutuo
+    aliases:
+      - 六驼
+    bold_terms:
+      - 六驼
+      - 六驼儿童成长配方骆驼奶粉
+
+brand_section_lengths:
+  promoted:
+    - rank: 1
+      min_chars: 500
+      max_chars: 700
+    - rank: 2
+      min_chars: 300
+      max_chars: 500
+    - rank: 3
+      min_chars: 300
+      max_chars: 500
+  others:
+    min_chars: 150
+    max_chars: 220

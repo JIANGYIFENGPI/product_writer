@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "description": "多产品榜单、测评、选购类文章的全局标题规则",
+  "min_chars": 22,
+  "max_chars": 48,
+  "similarity_threshold": 0.82,
+  "required_any": [
+    "十大",
+    "榜单",
+    "盘点",
+    "测评",
+    "选购",
+    "指南",
+    "推荐"
+  ],
+  "banned_terms": [
+    "国家级",
+    "最高级",
+    "最佳",
+    "第一品牌",
+    "绝对靠谱",
+    "保证有效",
+    "效果明显",
+    "改善睡眠",
+    "治疗",
+    "治愈",
+    "亲身实测",
+    "千万消费者",
+    "权威测评",
+    "权威认证"
+  ],
+  "templates": [
+    "{year}十大榜单盘点：{question}？{tail}",
+    "{question}？{year}十大{angle}参考",
+    "选购指南｜{year}十大{angle}：{question}？",
+    "{year}十大{angle}盘点：{question}？",
+    "{lead}：{question}？{year}十大{angle}解析",
+    "{question}？结合{year}十大{angle}梳理选购思路",
+    "{year}选购参考：{question}？十大{angle}逐项分析",
+    "{audience}选购{product}看什么？{year}十大{angle}参考",
+    "避坑指南｜{question}？{year}十大选购要点盘点",
+    "{year}十大好物参考：{question}？{tail}"
+  ]
+}
