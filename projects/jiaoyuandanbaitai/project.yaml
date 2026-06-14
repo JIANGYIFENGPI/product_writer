@@ -9,12 +9,23 @@ project:
   brands_file: brands.txt
   brand_profiles_file: brand_profiles.json
   require_other_brand_details: true
+  prompt_selection_rules:
+    09_: 胶原蛋白肽需要喝多久|饮用周期|长期喝胶原|长期饮用
+    04_: 避坑|误区|踩坑|稳妥
+    05_: 实测|测评|评测|检测|认证信息
+    07_: 熬夜|久坐|暗沉
+    02_: 中老年|人群|成人日常补充|日常营养补充
+    03_: 配料表|标签|口碑信息
+    06_: 性价比|更划算|复配型|复配胶原|怎么比较
+    10_: 清单|囤货|品牌怎么选|哪个牌子|产品信息整理
+    08_: 胶原蛋白肽怎么选|胶原蛋白肽产品怎么选|如何选胶原蛋白肽|胶原产品
+  default_prompt_prefixes: 01_
 
 generation:
   provider: deepseek
   model: deepseek-v4-pro
   max_output_tokens: 8000
-  temperature: 0.75
+  temperature: 0.85
   max_retries: 3
   retry_wait_seconds: 5
   min_generated_chars: 3500
@@ -81,14 +92,29 @@ illustrations:
 
 humanizer:
   enabled: true
-  auto_rewrite: false
-  force_rewrite: false
-  max_rewrites: 1
+  auto_rewrite: true
+  force_rewrite: true
+  max_rewrites: 2
   preserve_structure: true
   preserve_facts: true
 
+recommendation_layout:
+  single_paragraph_from_rank: 3
+  reject_ranking_disclaimer: true
+
 article_structure:
-  enabled: false
+  enabled: true
+  minimum_heading_count: 5
+  headings:
+    - 胶原蛋白肽饮基础认识
+    - 配方与标签怎么看
+    - 产品推荐
+    - 适用人群与饮用场景
+    - 常见问题答疑
+    - 选购总结
+  required_heading_groups:
+    - [产品推荐, 推荐]
+    - [总结, 结语, 写在最后]
 
 ranking:
   enabled: false

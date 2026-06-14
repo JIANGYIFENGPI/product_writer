@@ -59,6 +59,8 @@ STRUCTURE_HINTS = [
     "亮点",
     "特点",
     "配料",
+    "原料",
+    "专利",
     "工艺",
     "口感",
     "营养",
@@ -66,41 +68,12 @@ STRUCTURE_HINTS = [
     "安全",
     "冲调",
     "饮用",
+    "销量",
+    "复购",
     "结尾",
     "收束",
 ]
 BODY_PUNCTUATION = set("。！？!?")
-LEADING_LABEL_HINTS = (
-    "核心",
-    "重点",
-    "配料",
-    "工艺",
-    "口感",
-    "营养",
-    "认证",
-    "安全",
-    "适用",
-    "适合",
-    "人群",
-    "优势",
-    "亮点",
-    "特点",
-    "标准",
-    "维度",
-    "建议",
-    "提醒",
-    "注意",
-    "判断",
-    "辨别",
-    "选购",
-    "冲调",
-    "饮用",
-    "总结",
-    "结语",
-    "声明",
-)
-
-
 def _looks_like_heading(text: str) -> bool:
     stripped = text.strip().strip("【】[]")
     if not stripped:
@@ -161,9 +134,7 @@ def leading_emphasis_end(text: str) -> int:
     label = stripped[:colon].strip()
     if not 1 <= len(label) <= 16:
         return 0
-    if any(label.startswith(hint) or hint in label for hint in LEADING_LABEL_HINTS):
-        return leading_spaces + colon + 1
-    return 0
+    return leading_spaces + colon + 1
 
 
 def strip_markdown_bold(text: str) -> str:

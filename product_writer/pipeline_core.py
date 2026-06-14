@@ -96,7 +96,7 @@ def process_title(
     pending_path = docx_path.with_name(f".{docx_path.stem}.pending.docx")
     if pending_path.exists():
         pending_path.unlink()
-    prompt_path, template = choose_prompt(prompts, title)
+    prompt_path, template = choose_prompt(prompts, title, config)
     article_config = config_with_prompt_promoted_order(template, config)
 
     previous_report: dict = {}
@@ -157,6 +157,7 @@ def process_title(
                     existing_text,
                     existing_config,
                     expected_existing,
+                    title,
                 )
             except GenerationError as exc:
                 repaired_text = existing_text
@@ -262,7 +263,13 @@ def process_title(
 
     raw_text = generate_article(root, prompt, article_config, expected_top10, title)
     cleaned_text = clean_model_output(raw_text)
-    humanized_text = humanize_article(root, cleaned_text, article_config, expected_top10)
+    humanized_text = humanize_article(
+        root,
+        cleaned_text,
+        article_config,
+        expected_top10,
+        title,
+    )
     was_humanized = humanized_text != cleaned_text
     cleaned_text = clean_model_output(humanized_text)
     article_images = select_article_slot_images(

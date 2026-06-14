@@ -1,5 +1,6 @@
 output/
 runs/
+packages/*.zip
 .env
 __pycache__/
 *.pyc

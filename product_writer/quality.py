@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from difflib import SequenceMatcher
 import json
 import re
 from statistics import mean, pstdev
@@ -172,7 +173,6 @@ EDITORIAL_DISCLAIMER_PROBES = [
     "产品名称突出",
     "名称直接突出",
     "从产品名称",
-    "产品定位",
     "产品路线",
     "不构成整个",
     "不是必选项",
@@ -184,6 +184,62 @@ EDITORIAL_DISCLAIMER_PROBES = [
     "取决于自己日常饮食",
     "营养相对不足",
     "补足饮食短板",
+    "以上这些判断方法",
+    "没有绑定具体品牌",
+    "套到具体产品上",
+    "逐一推敲",
+]
+RANKING_DISCLAIMER_PROBES = [
+    "序号不代表市场排名",
+    "序号不代表排名",
+    "不代表市场排名或优劣",
+    "不代表产品优劣",
+    "不是商业排名",
+    "仅为陈列顺序",
+    "仅作选购信息参考",
+]
+PRODUCT_EDITORIAL_PROBES = [
+    "资料中标出",
+    "工艺资料",
+    "吸收率资料",
+    "资料说明",
+    "已有资料",
+    "销量资料",
+    "它的资料",
+    "资料重点",
+    "资料没有",
+    "信息完整度",
+    "标签语言",
+    "自行补充没有提供的结论",
+    "不能因为共享一个成分",
+    "视为同一种体验",
+]
+UNSUPPORTED_INFERENCE_PROBES = [
+    "进入血液循环更容易",
+    "胃排空速度比片剂快",
+    "降低肠胃的工作负荷",
+    "对胃肠道刺激性更低",
+    "吸收曲线更平缓",
+    "有助于维持黏膜湿润",
+    "不会成为发胖的来源",
+    "不存在依赖性问题",
+    "回到饮前状态",
+    "减少买到临期",
+    "降低买到临期",
+    "减少未被吸收就排出",
+    "等量摄入下实际被利用",
+    "晚间喝可以和身体夜间",
+    "午后喝则能弥补",
+]
+DATA_CAUSAL_PROBES = [
+    "复购率更能体现饮用体验",
+    "复购率说明实际体验",
+    "高复购率至少说明",
+    "销量反映市场接受度",
+    "意味着品牌在品控",
+    "至少说明品牌在品控",
+    "说明市场接受度和持续选择意愿",
+    "认证跨度覆盖国内与国际",
 ]
 
 
@@ -216,11 +272,13 @@ def output_delivery_warnings(text: str) -> list[str]:
     return warnings
 
 
-def humanizer_warnings(text: str) -> list[str]:
+def humanizer_warnings(text: str, config: dict[str, Any] | None = None) -> list[str]:
     warnings: list[str] = []
-    disclaimer_hits = [
-        probe for probe in EDITORIAL_DISCLAIMER_PROBES if probe in text
-    ]
+    disclaimer_probes = list(EDITORIAL_DISCLAIMER_PROBES)
+    layout = (config or {}).get("recommendation_layout") or {}
+    if layout.get("reject_ranking_disclaimer", False):
+        disclaimer_probes.extend(RANKING_DISCLAIMER_PROBES)
+    disclaimer_hits = [probe for probe in disclaimer_probes if probe in text]
     if disclaimer_hits:
         warnings.append(
             "包含资料不足或标签核对式AI套话："
@@ -289,7 +347,7 @@ def humanizer_warnings(text: str) -> list[str]:
         prefix = opening[:5]
         if len(prefix) == 5:
             opening_counts[prefix] = opening_counts.get(prefix, 0) + 1
-    opening_repeat_limit = 3 if len(body_lines) >= 20 else 4
+    opening_repeat_limit = 7
     repeated_openings = [
         f"{prefix}…×{count}"
         for prefix, count in sorted(
@@ -300,6 +358,48 @@ def humanizer_warnings(text: str) -> list[str]:
     ]
     if repeated_openings:
         warnings.append("多段使用相同开头，行文过于程式化：" + "、".join(repeated_openings[:6]))
+
+    comparable_lines = [
+        re.sub(r"[，。！？；：、“”‘’（）()\s]", "", line.strip())
+        for line in text.splitlines()
+        if article_char_count(line) >= 55 and not is_structure_line(line.strip())
+    ]
+    near_duplicates: list[str] = []
+    for index, current in enumerate(comparable_lines):
+        for later in comparable_lines[index + 1 : index + 4]:
+            shorter = min(len(current), len(later))
+            longer = max(len(current), len(later))
+            if shorter / longer < 0.65:
+                continue
+            similarity = SequenceMatcher(None, current, later).ratio()
+            if similarity >= 0.56:
+                near_duplicates.append(f"相邻段落相似度{similarity:.0%}")
+                break
+    if near_duplicates:
+        warnings.append(
+            "存在近义重复段落，应合并而不是换词复述："
+            + "、".join(near_duplicates[:4])
+        )
+
+    strong_ai_patterns = {
+        "不是……而是……": r"不是[^。！？]{0,35}而是",
+        "本质上": r"本质上",
+        "底层逻辑": r"底层逻辑",
+        "真正关键": r"真正(?:关键|重要|值得|能)",
+        "这意味着": r"这意味着",
+        "最后一公里": r"最后一公里",
+        "试金石": r"试金石",
+    }
+    strong_ai_hits = {
+        label: len(re.findall(pattern, text))
+        for label, pattern in strong_ai_patterns.items()
+    }
+    strong_ai_hits = {label: count for label, count in strong_ai_hits.items() if count}
+    if sum(strong_ai_hits.values()) >= 5:
+        warnings.append(
+            "抽象判断和转折套话过多："
+            + "、".join(f"{label}×{count}" for label, count in strong_ai_hits.items())
+        )
 
     checklist_probes = [
         "核对配料表",
@@ -350,11 +450,55 @@ def humanizer_warnings(text: str) -> list[str]:
             "多款产品介绍使用相同套话开头："
             + "、".join(repeated_recommendations[:6])
         )
+
+    product_editorial_hits: list[str] = []
+    in_product_section = False
+    seen_product_body = False
+    for line in text.splitlines():
+        stripped = line.strip().lstrip("#* ")
+        if _is_recommendation_heading(stripped):
+            in_product_section = True
+            seen_product_body = False
+            continue
+        if in_product_section:
+            if _ends_recommendation_section(stripped) or (
+                seen_product_body and is_structure_line(stripped)
+            ):
+                in_product_section = False
+            elif stripped and not is_structure_line(stripped):
+                seen_product_body = True
+        if not in_product_section:
+            continue
+        product_editorial_hits.extend(
+            probe for probe in PRODUCT_EDITORIAL_PROBES if probe in stripped
+        )
+    if product_editorial_hits:
+        warnings.append(
+            "产品介绍包含内部资料或编辑规则口吻："
+            + "、".join(dict.fromkeys(product_editorial_hits))
+        )
+    unsupported_hits = [
+        probe for probe in UNSUPPORTED_INFERENCE_PROBES if probe in text
+    ]
+    if unsupported_hits:
+        warnings.append(
+            "包含无资料支撑的医学或效果推断："
+            + "、".join(unsupported_hits[:8])
+        )
+    causal_hits = [probe for probe in DATA_CAUSAL_PROBES if probe in text]
+    if causal_hits:
+        warnings.append(
+            "将销量、复购或认证数据强行解释为体验或效果："
+            + "、".join(causal_hits[:8])
+        )
     return warnings
 
 
-def ai_trace_warnings(text: str) -> list[str]:
-    return humanizer_warnings(text)
+def ai_trace_warnings(
+    text: str,
+    config: dict[str, Any] | None = None,
+) -> list[str]:
+    return humanizer_warnings(text, config)
 
 
 def complete_structure_warnings(text: str, config: dict[str, Any]) -> list[str]:
@@ -368,6 +512,12 @@ def complete_structure_warnings(text: str, config: dict[str, Any]) -> list[str]:
         if 2 <= article_char_count(line.strip()) <= 80
         and is_structure_line(line.strip())
     ]
+    minimum_heading_count = int(settings.get("minimum_heading_count") or 0)
+    warnings: list[str] = []
+    if minimum_heading_count and len(heading_lines) < minimum_heading_count:
+        warnings.append(
+            f"独立结构标题不足：{len(heading_lines)} < {minimum_heading_count}"
+        )
     missing = []
     for group in groups:
         keywords = [str(item).strip() for item in group if str(item).strip()]
@@ -377,8 +527,8 @@ def complete_structure_warnings(text: str, config: dict[str, Any]) -> list[str]:
         ):
             missing.append("/".join(keywords))
     if missing:
-        return ["缺少独立结构标题：" + "、".join(missing)]
-    return []
+        warnings.append("缺少独立结构标题：" + "、".join(missing))
+    return warnings
 
 
 def paragraph_structure_warnings(text: str) -> list[str]:
@@ -419,6 +569,25 @@ def paragraph_structure_warnings(text: str) -> list[str]:
     return warnings
 
 
+def repeated_numeric_claim_warnings(text: str) -> list[str]:
+    repeated: list[str] = []
+    claim_patterns = (
+        r"吸收率做到95%以上",
+        r"胶原蛋白肽吸收率为?95%以上",
+        r"产品标准代号GB7101",
+        r"食品生产许可证编号SC\d+",
+        r"30日复购率(?:达到|超过|为)?85%",
+        r"复购率(?:达到|超过|为)?90%以上",
+    )
+    for pattern in claim_patterns:
+        matches = re.findall(pattern, text)
+        if len(matches) >= 3:
+            repeated.append(f"{matches[0]}×{len(matches)}")
+    if repeated:
+        return ["同一数字事实跨章节重复：" + "、".join(repeated)]
+    return []
+
+
 def visible_char_count(text: str) -> int:
     return article_char_count(text)
 
@@ -430,6 +599,14 @@ def conflicting_title_warnings(text: str, title: str) -> list[str]:
     for line in lines[:5]:
         line_key = re.sub(r"\s+", "", line)
         if line_key == title_key:
+            continue
+        title_similarity = SequenceMatcher(None, title_key, line_key).ratio()
+        if (
+            12 <= len(line) <= 80
+            and title_similarity >= 0.62
+            and any(keyword in line for keyword in ("胶原蛋白", "驼奶", "产品", "品牌"))
+        ):
+            conflicts.append(line)
             continue
         if (
             18 <= len(line) <= 80
@@ -721,6 +898,101 @@ def ranking_number(text: str) -> int | None:
             return int(value)
         return chinese_numbers.get(value)
     return None
+
+
+def _plain_structure_line(text: str) -> str:
+    return text.strip().lstrip("#* ▸•-")
+
+
+def _is_recommendation_heading(text: str) -> bool:
+    line = _plain_structure_line(text)
+    return bool(
+        re.match(
+            r"^(?:推荐\s*[一二三四五六七八九十\d]+|TOP\s*\d+|"
+            r"第[一二三四五六七八九十\d]+(?:名|款|位))\s*[：:]",
+            line,
+            flags=re.IGNORECASE,
+        )
+    )
+
+
+def _ends_recommendation_section(text: str) -> bool:
+    line = _plain_structure_line(text)
+    if not line or _is_recommendation_heading(line):
+        return False
+    if line.startswith(BRAND_SECTION_STOP_PREFIXES):
+        return True
+    if re.match(
+        r"^(?:[一二三四五六七八九十\d]+[、.．]|"
+        r"第[一二三四五六七八九十\d]+章[：:]?|终章[：:]?)",
+        line,
+    ):
+        return True
+    if re.match(r"^(?:Q\s*\d+|问[一二三四五六七八九十\d]*)[：:]", line, re.IGNORECASE):
+        return True
+    if (
+        article_char_count(line) <= 40
+        and not any(mark in line for mark in "。！？!?")
+        and is_structure_line(line)
+    ):
+        return True
+    return bool(
+        re.match(
+            r"^(?:FAQ|问答|常见问题|总结|结语|声明|按需选择|缩小选择|"
+            r"分龄选择|人群选择|场景适配|维度优先级|周期记录|"
+            r"使用与囤货|长期饮用安排|怎样.*(?:选择|取舍)|如何.*(?:选择|取舍)|"
+            r"不同.*(?:选择|取舍))",
+            line,
+            flags=re.IGNORECASE,
+        )
+    )
+
+
+def recommendation_layout_warnings(text: str, config: dict[str, Any]) -> list[str]:
+    layout = config.get("recommendation_layout") or {}
+    threshold = int(layout.get("single_paragraph_from_rank") or 0)
+    if threshold <= 0:
+        return []
+
+    sections: dict[int, list[str]] = {}
+    current_rank: int | None = None
+    for raw_line in text.splitlines():
+        line = _plain_structure_line(raw_line)
+        if not line:
+            continue
+        if _is_recommendation_heading(line):
+            rank = ranking_number(line)
+            if rank is None:
+                continue
+            current_rank = rank
+            sections.setdefault(rank, [])
+            continue
+        if current_rank is None:
+            continue
+        if _ends_recommendation_section(line):
+            current_rank = None
+            continue
+        if is_structure_line(line) or (
+            sections.get(current_rank)
+            and article_char_count(line) <= 40
+            and (
+                not any(mark in line for mark in "。！？!?")
+                or line.endswith(("？", "?"))
+            )
+        ):
+            if sections.get(current_rank):
+                current_rank = None
+            continue
+        sections.setdefault(current_rank, []).append(line)
+
+    warnings: list[str] = []
+    for rank, body_paragraphs in sections.items():
+        if rank >= threshold and len(body_paragraphs) > 1:
+            warnings.append(
+                f"推荐{rank}标题下有{len(body_paragraphs)}个正文段；"
+                f"第{threshold}款起每款只能写一个正文自然段"
+            )
+    return warnings
 
 
 def _product_aliases_by_rank(config: dict[str, Any]) -> dict[int, set[str]]:
@@ -1089,10 +1361,12 @@ def build_report(
     boilerplate = contains_boilerplate(cleaned_text)
     if boilerplate:
         warnings.append("包含疑似模型废话：" + "、".join(sorted(set(boilerplate))))
-    warnings.extend(ai_trace_warnings(cleaned_text))
+    warnings.extend(ai_trace_warnings(cleaned_text, config))
     warnings.extend(complete_structure_warnings(cleaned_text, config))
     warnings.extend(output_delivery_warnings(cleaned_text))
     warnings.extend(paragraph_structure_warnings(cleaned_text))
+    warnings.extend(repeated_numeric_claim_warnings(cleaned_text))
+    warnings.extend(recommendation_layout_warnings(cleaned_text, config))
     warnings.extend(conflicting_title_warnings(cleaned_text, title))
     whitelist_warnings = brand_whitelist_warnings(cleaned_text, config)
     table_warnings = []

@@ -36,6 +36,12 @@ HUMANIZER_WRITING_RULE = """【自然表达硬性要求】
 16. 不写资料口径说明、信息不足说明、购买核验式免责声明或写作过程解释。已提供的产品数据直接融入正文。
 17. 不把提示词中的限制条件改写进正文。禁止解释某个配料“只属于某产品”“不是全品类必选项”，也禁止用“形成不同路线、代表不同思路、谁更全、各有侧重”替代具体产品信息。
 18. 不根据产品配料推断读者缺少某类营养，不写“取决于日常饮食缺什么”“补足饮食短板”等未经提供的个体判断。
+19. 同一项产品数字只在对应产品介绍中完整出现一次。前文讲判断方法、后文讲选择场景时，不得再次复述吸收率、纯度、销量、复购率、标准代号或许可证编号。
+20. 不自行补写医学、生理或营养机制。除非原始资料明确提供，否则不写“进入血液循环更容易、胃排空更快、降低肠胃负担、促进胶原合成、维持黏膜湿润、改善皮肤状态、支持细胞能量”等结论。
+21. 原料研究、体外数据、动物数据和成品数据必须分开表述。研究数字只能说明原资料记录了什么，不得改写成这款产品的实际效果、个人吸收量、见效时间或适用人群收益。
+22. 销量、复购率、认证、专利、纯度和吸收率只能陈述原始数值及其信息类型。不得据此推断口感好、效果好、品控更成熟、减少临期库存、适合肠胃敏感者或用户愿意长期坚持。
+23. 不回答原资料没有提供依据的健康结论。禁止自行声称“不会发胖、没有依赖、停止后回到饮前状态、可以长期喝、液体比片剂更易耐受、某时间饮用效果更好”。
+24. 涉及“喝多久、什么时候喝、能否长期喝、特殊人群是否适合”等问题时，只写普通食品没有统一效果周期，按标签建议量和自身情况安排；身体不适、服药或特殊人群应咨询专业人员。
 """
 
 OUTPUT_DELIVERY_RULE = """【输出与交付硬性要求】
@@ -216,9 +222,7 @@ def article_brand_plan_text(plan: list[dict[str, Any]]) -> str:
                 f"场景={profile.get('scene')}"
             )
             lines.append(f"本款组织方式：{item.get('writing_mode')}")
-    lines.append(
-        "第3款起，每款另写一个自然段。"
-    )
+    lines.append("第3款起，每个推荐标题下只写一个正文自然段，不得拆成两段或多段。")
     lines.append("每款从对应内部素材中选择2至3项展开，不要逐项复述，不要五项全部写满。")
     lines.append("“内部素材、配方=、规格=、风味=、包装=、场景=、本款组织方式”等提示字段绝对不能出现在正文中。")
     lines.append("第三至第十名不得连续使用相同的信息顺序，不得写成八段同长度、同句式的产品卡片。")
@@ -436,27 +440,24 @@ def brand_section_lengths_text(config: dict[str, Any]) -> str:
 def choose_prompt(
     prompts: list[tuple[Path, str]],
     title: str = "",
+    config: dict[str, Any] | None = None,
 ) -> tuple[Path, str]:
-    title_rules = (
-        (("胶原蛋白肽需要喝多久", "饮用周期", "长期喝胶原"), ("09_",)),
-        (
-            (
-                "胶原蛋白肽怎么选",
-                "胶原蛋白肽产品怎么选",
-                "如何选胶原蛋白肽",
-                "选胶原蛋白肽",
-                "胶原肽产品",
-                "胶原产品",
-            ),
-            ("08_",),
-        ),
-        (("实测", "测评", "检测信息", "评测"), ("05_",)),
-        (("避坑", "误区", "踩坑"), ("04_", "07_")),
-        (("中老年", "人群", "熬夜", "久坐", "暗沉"), ("02_", "07_")),
-        (("性价比", "配方", "成分", "标签"), ("03_", "06_")),
-        (("清单", "产品信息", "品牌怎么选", "哪个牌子"), ("01_", "10_")),
-    )
-    for keywords, prefixes in title_rules:
+    title_rules = (config or {}).get("project", {}).get("prompt_selection_rules") or []
+    if isinstance(title_rules, dict):
+        title_rules = [
+            {
+                "prompt_prefixes": [prefix],
+                "keywords": [
+                    keyword.strip()
+                    for keyword in str(keywords).split("|")
+                    if keyword.strip()
+                ],
+            }
+            for prefix, keywords in title_rules.items()
+        ]
+    for rule in title_rules:
+        keywords = tuple(str(value) for value in rule.get("keywords") or [])
+        prefixes = tuple(str(value) for value in rule.get("prompt_prefixes") or [])
         if not any(keyword in title for keyword in keywords):
             continue
         candidates = [
@@ -467,6 +468,21 @@ def choose_prompt(
         if candidates:
             index = sum(ord(char) for char in title) % len(candidates)
             return candidates[index]
+
+    default_config = (config or {}).get("project", {}).get("default_prompt_prefixes") or []
+    if isinstance(default_config, str):
+        default_config = [value.strip() for value in default_config.split("|") if value.strip()]
+    default_prefixes = tuple(str(value) for value in default_config)
+    if default_prefixes:
+        candidates = [
+            item
+            for item in prompts
+            if any(item[0].name.startswith(prefix) for prefix in default_prefixes)
+        ]
+        if candidates:
+            index = sum(ord(char) for char in title) % len(candidates) if title else 0
+            return candidates[index]
+
     index = sum(ord(char) for char in title) % len(prompts) if title else random.randrange(len(prompts))
     return prompts[index]
 

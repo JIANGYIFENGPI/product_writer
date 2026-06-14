@@ -354,6 +354,16 @@ def _strip_duplicate_title(body: str, title: str) -> str:
     return body
 
 
+def _configured_structure_line(text: str, config: dict[str, Any]) -> bool:
+    plain = strip_markdown_bold(text).strip().strip("【】[]")
+    headings = (config.get("article_structure") or {}).get("headings") or []
+    return any(
+        plain == strip_markdown_bold(str(heading)).strip().strip("【】[]")
+        for heading in headings
+        if str(heading).strip()
+    )
+
+
 def render_docx(
     title: str,
     text: str,
@@ -394,11 +404,27 @@ def render_docx(
         article_images.neutral,
     )
 
+    in_qa_section = False
     for index, block in enumerate(blocks):
         if neutral_position == ("before", index) and article_images.neutral:
             add_picture_paragraph(doc, article_images.neutral)
         plain_block = strip_markdown_bold(block)
-        bold_all = bool(config["features"].get("bold_structure", True) and is_structure_line(plain_block))
+        configured_heading = _configured_structure_line(plain_block, config)
+        structure_heading = is_structure_line(plain_block) or configured_heading
+        if structure_heading:
+            if any(marker in plain_block for marker in ("常见问题", "答疑", "问答")):
+                in_qa_section = True
+            elif any(marker in plain_block for marker in ("总结", "结语", "写在最后")):
+                in_qa_section = False
+        qa_heading = bool(
+            in_qa_section
+            and len(plain_block.strip()) <= 40
+            and plain_block.strip().endswith(("？", "?"))
+        )
+        bold_all = bool(
+            config["features"].get("bold_structure", True)
+            and (structure_heading or qa_heading)
+        )
         add_plain_paragraph(doc, block, active_terms, bold_all=bold_all)
         if neutral_position == ("after", index) and article_images.neutral:
             add_picture_paragraph(doc, article_images.neutral)

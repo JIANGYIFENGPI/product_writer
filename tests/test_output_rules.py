@@ -8,7 +8,14 @@ from unittest.mock import patch
 from docx import Document
 
 from product_writer.config import load_project_config
-from product_writer.generator import should_humanize_article
+from product_writer.generator import (
+    _prepare_humanizer_blocks,
+    _remove_conflicting_leading_subtitles,
+    _remove_rejected_humanizer_sentences,
+    _restore_humanizer_blocks,
+    _restore_numeric_lines,
+    should_humanize_article,
+)
 from product_writer.prompt_loader import (
     article_brand_plan,
     choose_prompt,
@@ -18,16 +25,125 @@ from product_writer.prompt_loader import (
     requested_product_count,
 )
 from product_writer.quality import (
+    conflicting_title_warnings,
     docx_format_warnings,
     complete_structure_warnings,
     humanizer_warnings,
     output_delivery_warnings,
+    repeated_numeric_claim_warnings,
+    recommendation_layout_warnings,
     top10_ranking_warnings,
 )
 from product_writer.renderer import render_docx
 
 
 class OutputRuleTests(unittest.TestCase):
+    def test_near_duplicate_title_subtitle_is_rejected(self) -> None:
+        warnings = conflicting_title_warnings(
+            "中老年选胶原蛋白肽饮，先看配方再看饮用习惯\n"
+            "胶原蛋白肽饮基础认识\n正文。",
+            "中老年人选择胶原蛋白肽饮要看什么？配方与饮用注意事项",
+        )
+
+        self.assertTrue(any("旧标题或副标题" in warning for warning in warnings))
+
+    def test_simple_yaml_parser_supports_inline_keyword_lists(self) -> None:
+        from product_writer.config import _simple_yaml_load
+
+        parsed = _simple_yaml_load(
+            "article_structure:\n"
+            "  required_heading_groups:\n"
+            "    - [配方, 标签, 判断]\n"
+        )
+
+        self.assertEqual(
+            parsed["article_structure"]["required_heading_groups"],
+            [["配方", "标签", "判断"]],
+        )
+
+    def test_humanizer_restores_only_lines_with_changed_numbers(self) -> None:
+        original = (
+            "第一段含有50mL规格和95%以上数据。\n"
+            "第二段原本表达比较生硬。"
+        )
+        rewritten = (
+            "第一段被改成30mL规格和90%以上数据。\n"
+            "第二段改得更加自然。"
+        )
+
+        restored = _restore_numeric_lines(original, rewritten)
+
+        self.assertEqual(
+            restored,
+            "第一段含有50mL规格和95%以上数据。\n第二段改得更加自然。",
+        )
+
+    def test_humanizer_blocks_preserve_structure_facts_and_missing_paragraphs(
+        self,
+    ) -> None:
+        original = (
+            "产品推荐\n"
+            "推荐一：仙芳思白番茄烟酰胺胶原蛋白肽饮\n"
+            "这款产品每盒10瓶，每瓶50mL，原句表达比较生硬。\n"
+            "这一段没有数字，可以正常进行自然化改写。"
+        )
+        config = {
+            "article_structure": {"headings": ["产品推荐"]},
+            "brand_whitelist": [
+                {
+                    "brand": "仙芳思",
+                    "product_name": "仙芳思白番茄烟酰胺胶原蛋白肽饮",
+                    "aliases": [],
+                }
+            ],
+        }
+        protected, blocks = _prepare_humanizer_blocks(original, config)
+        self.assertIn("__LOCK_", protected)
+
+        rewritten = (
+            "<P0001>被改坏的结构标题</P0001>\n"
+            "<P0002>被改坏的推荐标题</P0002>\n"
+            "<P0003>这款产品为每盒__LOCK_0003__瓶，每瓶"
+            "__LOCK_0004__mL，表达更自然。</P0003>"
+        )
+        restored = _restore_humanizer_blocks(rewritten, blocks)
+
+        self.assertEqual(
+            restored,
+            "产品推荐\n"
+            "推荐一：仙芳思白番茄烟酰胺胶原蛋白肽饮\n"
+            "这款产品每盒10瓶，每瓶50mL，原句表达比较生硬。\n"
+            "这一段没有数字，可以正常进行自然化改写。",
+        )
+
+    def test_humanizer_blocks_keep_edits_when_all_tokens_are_preserved(self) -> None:
+        original = "仙芳思产品每盒10瓶，原句表达比较生硬。"
+        config = {
+            "brand_whitelist": [
+                {"brand": "仙芳思", "product_name": "", "aliases": []}
+            ]
+        }
+        _, blocks = _prepare_humanizer_blocks(original, config)
+        tokens = list(blocks[0]["tokens"])
+        rewritten = (
+            f"<P0001>{tokens[0]}产品一盒装有{tokens[1]}瓶，"
+            "这句话读起来更自然。</P0001>"
+        )
+
+        self.assertEqual(
+            _restore_humanizer_blocks(rewritten, blocks),
+            "仙芳思产品一盒装有10瓶，这句话读起来更自然。",
+        )
+
+    def test_repeated_numeric_claims_are_rejected(self) -> None:
+        warnings = repeated_numeric_claim_warnings(
+            "选择时有人会关注吸收率做到95%以上。\n"
+            "推荐一介绍里再次写吸收率做到95%以上。\n"
+            "后面的人群建议又一次写吸收率做到95%以上。"
+        )
+
+        self.assertTrue(any("同一数字事实跨章节重复" in warning for warning in warnings))
+
     def test_force_humanizer_can_be_disabled_for_single_pass_generation(self) -> None:
         should_rewrite, findings = should_humanize_article(
             "这是一段自然、简洁且没有固定模板词的正文。",
@@ -116,6 +232,100 @@ class OutputRuleTests(unittest.TestCase):
             self.assertEqual(len(keyword_runs), 1)
             self.assertTrue(keyword_runs[0].bold)
 
+    def test_renderer_bolds_configured_headings_and_faq_questions(self) -> None:
+        config = {
+            "features": {
+                "bold_structure": True,
+                "bold_terms": True,
+            },
+            "article_structure": {
+                "headings": [
+                    "配方与标签怎么看",
+                    "常见问题答疑",
+                    "选购总结",
+                ]
+            },
+            "promoted_products": [],
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "headings.docx"
+            render_docx(
+                "测试标题",
+                "配方与标签怎么看\n正文内容。\n"
+                "常见问题答疑\n一天什么时候喝比较合适？\n回答内容。\n"
+                "选购总结\n总结内容。",
+                output_path,
+                config,
+                [],
+            )
+
+            document = Document(output_path)
+            paragraph_by_text = {
+                paragraph.text: paragraph
+                for paragraph in document.paragraphs
+                if paragraph.text
+            }
+            for heading in (
+                "配方与标签怎么看",
+                "常见问题答疑",
+                "一天什么时候喝比较合适？",
+                "选购总结",
+            ):
+                self.assertTrue(
+                    all(run.bold for run in paragraph_by_text[heading].runs)
+                )
+
+    def test_renderer_bolds_product_dimension_labels(self) -> None:
+        config = {
+            "features": {
+                "bold_structure": True,
+                "bold_terms": True,
+            },
+            "promoted_products": [],
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "labels.docx"
+            render_docx(
+                "测试标题",
+                "原料与专利：这里介绍原料来源和专利信息。\n"
+                "销量复购：这里介绍销量和复购率数据。",
+                output_path,
+                config,
+                [],
+            )
+
+            document = Document(output_path)
+            for paragraph, expected_label in zip(
+                document.paragraphs[1:],
+                ("原料与专利：", "销量复购："),
+            ):
+                self.assertEqual(paragraph.runs[0].text, expected_label)
+                self.assertTrue(paragraph.runs[0].bold)
+                self.assertFalse(paragraph.runs[1].bold)
+
+    def test_renderer_bolds_any_short_leading_colon_label(self) -> None:
+        config = {
+            "features": {
+                "bold_structure": True,
+                "bold_terms": True,
+            },
+            "promoted_products": [],
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "generic-label.docx"
+            render_docx(
+                "测试标题",
+                "自定义观察项：这里是不在预设词库中的正文内容。",
+                output_path,
+                config,
+                [],
+            )
+
+            paragraph = Document(output_path).paragraphs[1]
+            self.assertEqual(paragraph.runs[0].text, "自定义观察项：")
+            self.assertTrue(paragraph.runs[0].bold)
+            self.assertFalse(paragraph.runs[1].bold)
+
     def test_format_checks_reject_heading_and_wrong_font(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             output_path = Path(temp_dir) / "bad.docx"
@@ -145,6 +355,9 @@ class OutputRuleTests(unittest.TestCase):
                 "购买前需要核对实物标签，不能只根据包装正面作判断。" * 2,
                 "购买前需要留意建议食用量，避免把规格等同于单次用量。" * 2,
                 "购买前需要确认储存方式，并按开封后的说明及时饮用。" * 2,
+                "购买前需要比较单瓶容量和整盒数量，再估算一段时间的使用成本。" * 2,
+                "购买前需要结合每日建议量计算每盒可用天数，避免只比较整盒价格。" * 2,
+                "购买前需要留意口味和便携方式，确认是否符合自己的饮用习惯。" * 2,
                 "消费者需要核对配料表和生产许可证，信息不全时应谨慎。" * 2,
             ]
         )
@@ -167,6 +380,96 @@ class OutputRuleTests(unittest.TestCase):
 
         self.assertTrue(any("产品介绍使用相同套话" in warning for warning in warnings))
 
+    def test_humanizer_detects_semantically_repeated_adjacent_paragraphs(self) -> None:
+        text = (
+            "把一瓶胶原蛋白肽饮翻到背面，每个人关注的位置不同。有人找胶原蛋白肽，"
+            "有人看烟酰胺，也有人直接计算营养成分表里的蛋白质含量。\n"
+            "拿到一瓶胶原蛋白肽饮后翻看背面，不同人关注的位置并不一样。有人先找"
+            "胶原蛋白肽，有人看有没有烟酰胺，还有人计算蛋白质含量。"
+        )
+
+        warnings = humanizer_warnings(text)
+
+        self.assertTrue(any("近义重复段落" in warning for warning in warnings))
+
+    def test_humanizer_detects_dense_abstract_ai_transitions(self) -> None:
+        text = (
+            "真正关键的不是包装，而是配料。本质上，这是选择路径的问题。"
+            "这意味着数字可以成为判断信息完整度的试金石。"
+        )
+
+        warnings = humanizer_warnings(text)
+
+        self.assertTrue(any("抽象判断和转折套话过多" in warning for warning in warnings))
+
+    def test_humanizer_allows_normal_product_positioning_phrase(self) -> None:
+        warnings = humanizer_warnings(
+            "这款产品定位偏向日常即饮，包装和规格适合放在办公室。"
+        )
+
+        self.assertFalse(any("标签核对式AI套话" in warning for warning in warnings))
+
+    def test_humanizer_only_rejects_heavily_repeated_openings(self) -> None:
+        four_paragraphs = "\n".join(
+            f"胶原蛋白肽饮第{index}段提供不同的配方、规格和饮用场景信息，"
+            "每段内容都足够长，可以用于检查开头重复阈值，同时补充包装与日常安排。"
+            for index in range(1, 5)
+        )
+        seven_paragraphs = four_paragraphs + "\n" + "\n".join(
+            f"胶原蛋白肽饮第{index}段继续提供不同的包装、风味和日常安排信息，"
+            "用于确认严重重复仍会被自动质检拦截，并保留足够的正文长度。"
+            for index in range(5, 8)
+        )
+
+        self.assertFalse(
+            any("多段使用相同开头" in warning for warning in humanizer_warnings(four_paragraphs))
+        )
+        self.assertTrue(
+            any("多段使用相同开头" in warning for warning in humanizer_warnings(seven_paragraphs))
+        )
+
+    def test_humanizer_removes_rejected_sentences_and_ai_prefixes(self) -> None:
+        cleaned = _remove_rejected_humanizer_sentences(
+            "序号不代表产品优劣，仅作选购信息参考。\n"
+            "数据显示，这款产品规格为50mL。\n"
+            "本质上，这意味着真正关键的是按实际需求选择。\n"
+            "这样写的目的是让读者核对标签和信息完整度。"
+        )
+
+        self.assertNotIn("不代表产品优劣", cleaned)
+        self.assertNotIn("数据显示", cleaned)
+        self.assertNotIn("本质上", cleaned)
+        self.assertNotIn("这意味着", cleaned)
+        self.assertIn("这款产品规格为50mL", cleaned)
+        self.assertIn("便于读者查看配料和规格和可查信息", cleaned)
+
+    def test_humanizer_removes_conflicting_leading_subtitle(self) -> None:
+        title = "胶原蛋白肽饮怎么比较检测与认证信息？2026选购参考"
+        text = (
+            "胶原蛋白肽饮的检测和认证信息，怎么比着看？2026选购参考\n"
+            "胶原蛋白肽饮基础认识\n"
+            "这里是正常正文。"
+        )
+
+        self.assertEqual(
+            _remove_conflicting_leading_subtitles(text, title),
+            "胶原蛋白肽饮基础认识\n这里是正常正文。",
+        )
+
+    def test_humanizer_rejects_unsupported_health_inference(self) -> None:
+        warnings = humanizer_warnings(
+            "液态产品胃排空速度比片剂快，还能降低肠胃的工作负荷。"
+        )
+
+        self.assertTrue(any("医学或效果推断" in warning for warning in warnings))
+
+    def test_humanizer_rejects_sales_data_causal_claim(self) -> None:
+        warnings = humanizer_warnings(
+            "这款产品复购率更能体现饮用体验，销量反映市场接受度。"
+        )
+
+        self.assertTrue(any("销量、复购或认证数据" in warning for warning in warnings))
+
     def test_humanizer_rejects_label_disclaimer_phrasing(self) -> None:
         warnings = humanizer_warnings(
             "这款产品目前只有包装名称，购买时还需核对实物标签，以实物为准。"
@@ -185,15 +488,142 @@ class OutputRuleTests(unittest.TestCase):
 
         self.assertTrue(any("标签核对式AI套话" in warning for warning in warnings))
 
+    def test_humanizer_rejects_editorial_language_inside_product_intro(self) -> None:
+        text = (
+            "推荐三：测试胶原蛋白肽饮\n"
+            "它的资料没有堆叠很多复配成分，标签语言越简短，"
+            "越要避免自行补充没有提供的结论。\n"
+            "按需选择\n"
+            "这里是正常的通用选择建议。"
+        )
+
+        warnings = humanizer_warnings(text)
+
+        self.assertTrue(any("内部资料或编辑规则口吻" in warning for warning in warnings))
+
+    def test_humanizer_rejects_ranking_disclaimer(self) -> None:
+        warnings = humanizer_warnings(
+            "推荐一：甲产品\n序号不代表市场排名或优劣，以下内容仅作选购信息参考。",
+            {"recommendation_layout": {"reject_ranking_disclaimer": True}},
+        )
+
+        self.assertTrue(any("标签核对式AI套话" in warning for warning in warnings))
+
+    def test_humanizer_allows_ranking_disclaimer_when_project_rule_is_disabled(
+        self,
+    ) -> None:
+        warnings = humanizer_warnings(
+            "推荐一：甲产品\n序号不代表市场排名或优劣，以下内容仅作选购信息参考。",
+            {"recommendation_layout": {"reject_ranking_disclaimer": False}},
+        )
+
+        self.assertFalse(any("标签核对式AI套话" in warning for warning in warnings))
+
+    def test_recommendation_layout_rejects_multiple_body_paragraphs_from_rank_three(
+        self,
+    ) -> None:
+        text = (
+            "推荐三：甲产品\n"
+            "第一段介绍产品的配方、口感和适合的饮用场景，内容足够形成正文。\n"
+            "第二段又补充包装和使用体验，因此已经拆成了两个正文自然段。\n"
+            "推荐四：乙产品\n"
+            "这一款只保留一个完整正文自然段，用自然衔接写清产品特点和适用场景。"
+        )
+
+        warnings = recommendation_layout_warnings(
+            text,
+            {"recommendation_layout": {"single_paragraph_from_rank": 3}},
+        )
+
+        self.assertTrue(any("推荐3标题下有2个正文段" in warning for warning in warnings))
+
+    def test_recommendation_layout_stops_at_numbered_section_heading(self) -> None:
+        text = (
+            "推荐三：甲产品\n"
+            "这一款只保留一个完整正文自然段，用自然衔接写清产品特点和适用场景。\n"
+            "六、分龄选择与问答\n"
+            "这里是分龄建议，不属于推荐三的产品介绍。\n"
+            "问题一：应该怎么安排？\n"
+            "这里是问题回答。"
+        )
+
+        warnings = recommendation_layout_warnings(
+            text,
+            {"recommendation_layout": {"single_paragraph_from_rank": 3}},
+        )
+
+        self.assertEqual(warnings, [])
+
+    def test_recommendation_layout_stops_at_unlisted_structure_heading(self) -> None:
+        text = (
+            "推荐十：甲产品\n"
+            "这一款只保留一个完整正文自然段，用自然衔接写清产品特点和适用场景。\n"
+            "购买时还要考虑哪些现实条件\n"
+            "这里讨论预算、储存和长期安排，不属于推荐十的产品介绍。\n"
+            "最后的选择建议\n"
+            "这里是全文收束。"
+        )
+
+        warnings = recommendation_layout_warnings(
+            text,
+            {"recommendation_layout": {"single_paragraph_from_rank": 3}},
+        )
+
+        self.assertEqual(warnings, [])
+
+    def test_recommendation_layout_stops_at_short_heading_and_qa(self) -> None:
+        text = (
+            "推荐十：甲产品\n"
+            "这一款只保留一个完整正文自然段，用自然衔接写清产品特点和适用场景。\n"
+            "长期安排怎么做\n"
+            "这里讨论预算和储存，不属于推荐十的产品介绍。\n"
+            "Q1：空腹可以喝吗？\n"
+            "这里是问题回答。"
+        )
+
+        warnings = recommendation_layout_warnings(
+            text,
+            {"recommendation_layout": {"single_paragraph_from_rank": 3}},
+        )
+
+        self.assertEqual(warnings, [])
+
+    def test_product_editorial_scan_stops_at_numbered_section_heading(self) -> None:
+        text = (
+            "推荐三：甲产品\n"
+            "这一款介绍配方、规格和口感，不包含编辑过程说明。\n"
+            "六、常见问题与结语\n"
+            "已有资料说明这一问题需要单独讨论。"
+        )
+
+        warnings = humanizer_warnings(text)
+
+        self.assertFalse(any("内部资料或编辑规则口吻" in warning for warning in warnings))
+
     def test_prompt_selection_matches_title_angle(self) -> None:
         prompts = [
             (Path("05_测评维度.txt"), "测评"),
             (Path("08_胶原深度.txt"), "胶原"),
             (Path("01_通用指南.txt"), "通用"),
         ]
+        config = {
+            "project": {
+                "prompt_selection_rules": [
+                    {
+                        "keywords": ["胶原蛋白肽怎么选"],
+                        "prompt_prefixes": ["08_"],
+                    },
+                    {
+                        "keywords": ["实测"],
+                        "prompt_prefixes": ["05_"],
+                    },
+                ],
+                "default_prompt_prefixes": ["01_"],
+            }
+        }
 
         self.assertEqual(
-            choose_prompt(prompts, "胶原蛋白肽怎么选？")[0].name,
+            choose_prompt(prompts, "胶原蛋白肽怎么选？", config)[0].name,
             "08_胶原深度.txt",
         )
         self.assertEqual(
@@ -203,11 +633,21 @@ class OutputRuleTests(unittest.TestCase):
                     (Path("09_胶原周期.txt"), "周期"),
                 ],
                 "胶原蛋白肽需要喝多久？",
+                {
+                    "project": {
+                        "prompt_selection_rules": [
+                            {
+                                "keywords": ["需要喝多久"],
+                                "prompt_prefixes": ["09_"],
+                            }
+                        ]
+                    }
+                },
             )[0].name,
             "09_胶原周期.txt",
         )
         self.assertEqual(
-            choose_prompt(prompts, "十款产品实测参考")[0].name,
+            choose_prompt(prompts, "十款产品实测参考", config)[0].name,
             "05_测评维度.txt",
         )
 
@@ -230,6 +670,20 @@ class OutputRuleTests(unittest.TestCase):
         self.assertEqual(warnings, [])
         warnings = complete_structure_warnings("基础知识\n正文。\n结语\n正文。", config)
         self.assertTrue(any("选购/判断" in warning for warning in warnings))
+
+    def test_complete_structure_can_require_minimum_heading_count(self) -> None:
+        warnings = complete_structure_warnings(
+            "基础认识\n正文。\n产品推荐\n正文。\n选购总结\n正文。",
+            {
+                "article_structure": {
+                    "enabled": True,
+                    "minimum_heading_count": 5,
+                    "required_heading_groups": [["推荐"], ["总结"]],
+                }
+            },
+        )
+
+        self.assertTrue(any("独立结构标题不足" in warning for warning in warnings))
 
     def test_project_requires_non_empty_brand_whitelist(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -310,7 +764,9 @@ class OutputRuleTests(unittest.TestCase):
         self.assertTrue(expected[1].startswith("赤大师"))
         self.assertIn("本篇产品推荐顺序", prompt)
         self.assertNotIn("驼奶粉基础认识", prompt)
-        self.assertNotIn("【全文必备结构标题】", prompt)
+        self.assertIn("【全文必备结构标题】", prompt)
+        self.assertIn("配方与标签怎么看", prompt)
+        self.assertIn("选购总结", prompt)
 
     def test_collagen_project_has_complete_other_product_profiles(self) -> None:
         root = Path(__file__).resolve().parents[1]
@@ -329,6 +785,13 @@ class OutputRuleTests(unittest.TestCase):
             10,
         )
         self.assertNotIn("\u767d\u756a\u8304", str(config["brand_profiles"]))
+        self.assertTrue(config["article_structure"]["enabled"])
+        self.assertTrue(
+            any(
+                "总结" in heading
+                for heading in config["article_structure"]["headings"]
+            )
+        )
 
     def test_collagen_prompts_inject_eight_profiles_without_old_rules(self) -> None:
         root = Path(__file__).resolve().parents[1]
