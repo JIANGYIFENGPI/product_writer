@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +12,7 @@ IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
 class ArticleImages:
     neutral: Path | None
     by_rank: dict[int, Path]
+    extra_by_rank: dict[int, list[Path]] = field(default_factory=dict)
 
 
 def promoted_image_slots(config: dict[str, Any]) -> dict[int, str]:
@@ -108,19 +109,66 @@ def select_article_slot_images(
     settings = config.get("illustrations") or {}
     neutral_slot = str(settings.get("neutral_slot") or "neutral").strip()
     neutral_choices = image_slots.get(neutral_slot) or []
+    cover_context = content
+    context_paragraphs = int(settings.get("cover_context_paragraphs") or 0)
+    if context_paragraphs > 0:
+        cover_context = cover_image_context(
+            content,
+            int(settings.get("cover_body_paragraph_min_chars") or 80),
+            context_paragraphs,
+        )
     neutral = select_matching_neutral_image(
         neutral_choices,
         title,
-        content,
+        cover_context,
         settings.get("neutral_image_keywords") or {},
         rng,
     )
     by_rank: dict[int, Path] = {}
+    extra_by_rank: dict[int, list[Path]] = {}
+    extra_counts = {
+        int(rank): max(0, int(count))
+        for rank, count in (
+            settings.get("extra_images_by_promoted_rank") or {}
+        ).items()
+    }
     for rank, slot in promoted_image_slots(config).items():
         choices = image_slots.get(slot) or []
         if choices:
-            by_rank[rank] = rng.choice(choices)
-    return ArticleImages(neutral=neutral, by_rank=by_rank)
+            selected = rng.choice(choices)
+            by_rank[rank] = selected
+            remaining = [path for path in choices if path != selected]
+            extra_count = min(extra_counts.get(rank, 0), len(remaining))
+            if extra_count:
+                extra_by_rank[rank] = rng.sample(remaining, extra_count)
+    return ArticleImages(
+        neutral=neutral,
+        by_rank=by_rank,
+        extra_by_rank=extra_by_rank,
+    )
+
+
+def cover_image_context(
+    content: str,
+    minimum_chars: int = 80,
+    paragraph_count: int = 3,
+) -> str:
+    """Return the first substantial opening paragraphs for cover-image matching."""
+    selected: list[str] = []
+    for raw_line in content.splitlines():
+        line = raw_line.strip().lstrip("#* ▸•-").strip()
+        if not line:
+            continue
+        if len(line) < minimum_chars:
+            continue
+        if line.startswith(("推荐", "TOP", "第")) and ("：" in line or ":" in line):
+            continue
+        selected.append(line)
+        if len(selected) >= max(1, paragraph_count):
+            return "\n".join(selected)
+    if selected:
+        return "\n".join(selected)
+    return content[:500]
 
 
 def select_matching_neutral_image(

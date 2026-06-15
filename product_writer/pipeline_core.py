@@ -382,6 +382,10 @@ def run_pipeline(root: Path, options: PipelineOptions) -> list[dict]:
                 completed_titles.add(report["title"])
         reports = [report for report in ordered_reports if report is not None]
 
-    if not options.dry_run and not options.repair_existing:
+    if (
+        not options.dry_run
+        and not options.repair_existing
+        and not config["project"].get("preserve_titles", False)
+    ):
         remove_completed_titles(titles_file, completed_titles)
     return reports

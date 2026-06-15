@@ -42,8 +42,6 @@ features:
 illustrations:
   neutral_slot: neutral
   required_count: 4
-  neutral_after_first_paragraph_when_preamble_chars: 300
-  minimum_body_paragraphs_between_images: 2
   validate_positions: true
 
 humanizer:

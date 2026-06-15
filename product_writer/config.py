@@ -175,9 +175,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "neutral_image_allowlist": [],
         "promoted_ranks": [1, 2, 3],
         "required_count": 4,
-        "semantic_neutral_anchor": True,
-        "neutral_after_first_paragraph_when_preamble_chars": 300,
-        "minimum_body_paragraphs_between_images": 2,
+        "neutral_placement_strategy": "section_boundary_with_spacing",
+        "neutral_body_paragraph_min_chars": 60,
+        "minimum_body_paragraphs_before_neutral": 5,
+        "minimum_body_paragraphs_between_images": 3,
         "validate_positions": True,
     },
     "humanizer": {

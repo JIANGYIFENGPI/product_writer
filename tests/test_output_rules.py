@@ -232,7 +232,7 @@ class OutputRuleTests(unittest.TestCase):
             self.assertEqual(len(keyword_runs), 1)
             self.assertTrue(keyword_runs[0].bold)
 
-    def test_renderer_bolds_configured_headings_and_faq_questions(self) -> None:
+    def test_renderer_bolds_configured_headings_but_not_full_faq_questions(self) -> None:
         config = {
             "features": {
                 "bold_structure": True,
@@ -268,12 +268,17 @@ class OutputRuleTests(unittest.TestCase):
             for heading in (
                 "配方与标签怎么看",
                 "常见问题答疑",
-                "一天什么时候喝比较合适？",
                 "选购总结",
             ):
                 self.assertTrue(
                     all(run.bold for run in paragraph_by_text[heading].runs)
                 )
+            self.assertFalse(
+                any(
+                    bool(run.bold)
+                    for run in paragraph_by_text["一天什么时候喝比较合适？"].runs
+                )
+            )
 
     def test_renderer_bolds_product_dimension_labels(self) -> None:
         config = {
@@ -325,6 +330,74 @@ class OutputRuleTests(unittest.TestCase):
             self.assertEqual(paragraph.runs[0].text, "自定义观察项：")
             self.assertTrue(paragraph.runs[0].bold)
             self.assertFalse(paragraph.runs[1].bold)
+
+    def test_renderer_does_not_bold_full_numbered_explanation(self) -> None:
+        config = {
+            "features": {
+                "bold_structure": True,
+                "bold_terms": True,
+            },
+            "promoted_products": [],
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "numbered-explanation.docx"
+            render_docx(
+                "测试标题",
+                "1. 分子量信息：查看检测口径、区间和批次信息，"
+                "不要把单一数字直接等同于产品优劣。",
+                output_path,
+                config,
+                [],
+            )
+
+            paragraph = Document(output_path).paragraphs[1]
+            self.assertEqual(paragraph.runs[0].text, "1. 分子量信息：")
+            self.assertTrue(paragraph.runs[0].bold)
+            self.assertTrue(any(not run.bold for run in paragraph.runs[1:]))
+
+    def test_renderer_bolds_product_list_heading(self) -> None:
+        config = {
+            "features": {
+                "bold_structure": True,
+                "bold_terms": True,
+            },
+            "promoted_products": [],
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "product-list-heading.docx"
+            render_docx(
+                "测试标题",
+                "十款产品逐一看\n推荐一：测试产品\n这里是产品正文。",
+                output_path,
+                config,
+                [],
+            )
+
+            paragraph = Document(output_path).paragraphs[1]
+            self.assertEqual(paragraph.text, "十款产品逐一看")
+            self.assertTrue(all(run.bold for run in paragraph.runs))
+
+    def test_renderer_bolds_full_faq_section_heading(self) -> None:
+        config = {
+            "features": {
+                "bold_structure": True,
+                "bold_terms": True,
+            },
+            "promoted_products": [],
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "faq-heading.docx"
+            render_docx(
+                "测试标题",
+                "白番茄烟酰胺高频FAQ\n什么时候饮用比较合适？\n回答正文。",
+                output_path,
+                config,
+                ["白番茄烟酰胺"],
+            )
+
+            paragraph = Document(output_path).paragraphs[1]
+            self.assertEqual(paragraph.text, "白番茄烟酰胺高频FAQ")
+            self.assertTrue(all(run.bold for run in paragraph.runs))
 
     def test_format_checks_reject_heading_and_wrong_font(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -431,12 +504,20 @@ class OutputRuleTests(unittest.TestCase):
     def test_humanizer_removes_rejected_sentences_and_ai_prefixes(self) -> None:
         cleaned = _remove_rejected_humanizer_sentences(
             "序号不代表产品优劣，仅作选购信息参考。\n"
+            "理清这十二个维度之后，我们再进入今年的年度产品清单。"
+            "本篇一共收录十款，排序不代表功效高低或商业排名，"
+            "只是年度信息整理的一种呈现方式。\n"
             "数据显示，这款产品规格为50mL。\n"
             "本质上，这意味着真正关键的是按实际需求选择。\n"
             "这样写的目的是让读者核对标签和信息完整度。"
         )
 
         self.assertNotIn("不代表产品优劣", cleaned)
+        self.assertNotIn("本篇一共收录", cleaned)
+        self.assertNotIn("排序不代表功效高低", cleaned)
+        self.assertNotIn("年度信息整理的一种呈现方式", cleaned)
+        self.assertNotIn("这篇文章", cleaned)
+        self.assertNotIn("这篇内容", cleaned)
         self.assertNotIn("数据显示", cleaned)
         self.assertNotIn("本质上", cleaned)
         self.assertNotIn("这意味着", cleaned)
@@ -726,7 +807,20 @@ class OutputRuleTests(unittest.TestCase):
         self.assertEqual(requested_product_count("六款白番茄产品参考"), 6)
         self.assertEqual(requested_product_count("10款口服液清单"), 10)
 
-    def test_brand_intro_plan_keeps_first_two_and_randomizes_later_positions(self) -> None:
+    def test_five_product_title_overrides_ten_product_template_wording(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        config = load_project_config(root, "jiaoyuandanbaitai")
+        prompt = render_prompt(
+            "专用结构中原本要求十款产品和推荐三至十。",
+            "白番茄烟酰胺品牌怎么选？2026五款产品推荐",
+            config,
+        )
+
+        self.assertIn("【本篇推荐数量最高优先级】", prompt)
+        self.assertIn("本篇只能输出推荐一至推荐五，共5款", prompt)
+        self.assertIn("禁止输出推荐6及其后的产品", prompt)
+
+    def test_brand_intro_plan_keeps_promoted_products_and_randomizes_others(self) -> None:
         root = Path(__file__).resolve().parents[1]
         config = load_project_config(root, "jiaoyuandanbaitai")
         candidates = [
@@ -751,6 +845,8 @@ class OutputRuleTests(unittest.TestCase):
             [item["brand"] for item in second[2:]],
         )
         self.assertEqual([item["rank"] for item in first], list(range(1, 11)))
+        self.assertTrue(all(item.get("profile") for item in first[2:]))
+        self.assertTrue(all(not item.get("writing_mode") for item in first))
 
     def test_rendered_prompt_records_random_recommendation_order(self) -> None:
         root = Path(__file__).resolve().parents[1]
@@ -762,30 +858,70 @@ class OutputRuleTests(unittest.TestCase):
         self.assertEqual(len(expected), 10)
         self.assertTrue(expected[0].startswith("仙芳思"))
         self.assertTrue(expected[1].startswith("赤大师"))
+        self.assertEqual(len(set(expected)), 10)
         self.assertIn("本篇产品推荐顺序", prompt)
         self.assertNotIn("驼奶粉基础认识", prompt)
-        self.assertIn("【全文必备结构标题】", prompt)
-        self.assertIn("配方与标签怎么看", prompt)
-        self.assertIn("选购总结", prompt)
+        self.assertNotIn("【全文必备结构标题】", prompt)
+        self.assertNotIn("本款组织方式：", prompt)
 
-    def test_collagen_project_has_complete_other_product_profiles(self) -> None:
+    def test_white_tomato_project_has_complete_updated_product_profiles(self) -> None:
         root = Path(__file__).resolve().parents[1]
         config = load_project_config(root, "jiaoyuandanbaitai")
 
-        self.assertEqual(config["project"]["name"], "\u80f6\u539f\u86cb\u767d\u80bd\u996e")
-        self.assertEqual(len(config["brand_whitelist"]), 33)
-        self.assertEqual(len(config["brand_profiles"]), 31)
+        self.assertEqual(config["project"]["name"], "\u767d\u756a\u8304\u70df\u9170\u80fa")
+        self.assertEqual(len(config["brand_whitelist"]), 32)
+        self.assertEqual(len(config["brand_profiles"]), 30)
+        self.assertEqual(
+            [item["brand"] for item in config["promoted_products"]],
+            ["仙芳思", "赤大师"],
+        )
+        self.assertEqual(
+            {
+                (item["brand"], item["product_name"])
+                for item in config["brand_whitelist"]
+                if item["brand"] not in {"仙芳思", "赤大师"}
+            },
+            {
+                (item["brand"], item["product_name"])
+                for item in config["brand_profiles"]
+            },
+        )
         self.assertTrue(config["features"]["images"])
         self.assertEqual(
-            config["illustrations"]["minimum_body_paragraphs_before_neutral"],
+            config["illustrations"]["neutral_placement_strategy"],
+            "section_boundary_with_spacing",
+        )
+        self.assertEqual(
+            config["illustrations"]["neutral_body_paragraph_min_chars"],
+            60,
+        )
+        self.assertEqual(
+            config["illustrations"]["minimum_body_paragraphs_between_images"],
             3,
+        )
+        self.assertNotIn(
+            "cover_after_body_paragraphs",
+            config["illustrations"],
+        )
+        self.assertEqual(config["illustrations"]["required_count"], 4)
+        self.assertEqual(
+            config["illustrations"]["extra_images_by_promoted_rank"],
+            {"1": 1},
+        )
+        self.assertEqual(
+            config["brand_section_lengths"]["promoted"][0],
+            {"rank": 1, "min_chars": 800, "max_chars": 1100},
         )
         self.assertGreater(
             len(config["illustrations"]["neutral_image_keywords"]),
             10,
         )
-        self.assertNotIn("\u767d\u756a\u8304", str(config["brand_profiles"]))
+        self.assertIn("\u767d\u756a\u8304", str(config["brand_profiles"]))
+        self.assertIn("\u4ed9\u82b3\u601d", str(config["brand_whitelist"]))
+        self.assertIn("\u8d64\u5927\u5e08", str(config["brand_whitelist"]))
+        self.assertNotIn("\u5a07\u5c0f\u989c", str(config["brand_whitelist"]))
         self.assertTrue(config["article_structure"]["enabled"])
+        self.assertFalse(config["article_structure"]["inject_prompt_headings"])
         self.assertTrue(
             any(
                 "总结" in heading
@@ -793,7 +929,7 @@ class OutputRuleTests(unittest.TestCase):
             )
         )
 
-    def test_collagen_prompts_inject_eight_profiles_without_old_rules(self) -> None:
+    def test_white_tomato_prompts_inject_eight_other_brand_profiles(self) -> None:
         root = Path(__file__).resolve().parents[1]
         config = load_project_config(root, "jiaoyuandanbaitai")
         project = root / "projects" / "jiaoyuandanbaitai"
@@ -816,7 +952,7 @@ class OutputRuleTests(unittest.TestCase):
             )
             self.assertEqual(
                 rendered.count("\u672c\u6b3e\u7ec4\u7ec7\u65b9\u5f0f\uff1a"),
-                8,
+                0,
             )
             self.assertNotIn(
                 "\u53ea\u4f7f\u7528\u4ea7\u54c1\u5168\u540d\u80fd\u591f"
@@ -824,6 +960,125 @@ class OutputRuleTests(unittest.TestCase):
                 rendered,
             )
             self.assertNotIn("\u9a7c\u5976\u7c89", rendered)
+            self.assertIn("\u4ed9\u82b3\u601d", rendered)
+            self.assertIn("\u8d64\u5927\u5e08", rendered)
+            self.assertNotIn("\u5a07\u5c0f\u989c", rendered)
+
+    def test_white_tomato_prompts_keep_all_original_unique_structures(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        prompt_dir = (
+            root / "projects" / "jiaoyuandanbaitai" / "prompts"
+        )
+        required_fragments = {
+            "01_": [
+                "三类核心成分",
+                "口服液与其他剂型",
+                "五个情景式问答",
+                "十款产品",
+            ],
+            "02_": [
+                "核心价值总览",
+                "八个维度必须全部出现",
+                "常见问答",
+                "实用选购手册",
+            ],
+            "03_": [
+                "GB 5009.89-2016",
+                "9个维度",
+                "资质合规性",
+                "原料纯度",
+                "实测含量",
+                "白番茄多酚",
+                "番茄红素",
+            ],
+            "04_": [
+                "三类核心误区",
+                "复配逻辑",
+                "正确使用",
+                "高频FAQ",
+            ],
+            "05_": [
+                "情景式问答",
+                "12项测评维度",
+                "定义、重要性、评价依据",
+                "分人群精准选购建议",
+            ],
+            "06_": [
+                "三类核心成分科普",
+                "四个评测维度",
+                "五个情景式问答",
+                "市场常见问题",
+            ],
+            "07_": [
+                "18—25 岁",
+                "26—40 岁",
+                "40 岁以上",
+                "常见问答",
+            ],
+            "08_": [
+                "市场与需求变化",
+                "胶原蛋白与胶原蛋白肽的区别",
+                "高权重维度",
+                "中权重维度",
+                "基础权重维度",
+                "时间与周期",
+                "八、避坑指南",
+            ],
+            "09_": [
+                "十二项评测维度",
+                "周期相关常见问答",
+                "七项实用选择规则",
+                "周期没有统一答案",
+            ],
+            "10_": [
+                "年度专题定位",
+                "十二项年度评测标准",
+                "十款产品年度清单",
+                "至少设置六个问答",
+                "合规与资料说明",
+            ],
+        }
+
+        prompt_paths = sorted(prompt_dir.glob("*.txt"))
+        self.assertEqual(len(prompt_paths), 10)
+        for prefix, fragments in required_fragments.items():
+            matches = [path for path in prompt_paths if path.name.startswith(prefix)]
+            self.assertEqual(len(matches), 1, prefix)
+            content = matches[0].read_text(encoding="utf-8")
+            for fragment in fragments:
+                self.assertIn(fragment, content, f"{matches[0].name}: {fragment}")
+
+        common_prompt = (
+            root / "projects" / "jiaoyuandanbaitai" / "prompt_common.txt"
+        ).read_text(encoding="utf-8")
+        self.assertIn("不得据此删减专用结构", common_prompt)
+
+    def test_white_tomato_project_keeps_collagen_templates_title_scoped(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        config = load_project_config(root, "jiaoyuandanbaitai")
+        project = root / "projects" / "jiaoyuandanbaitai"
+        prompts = load_prompts(project, config)
+
+        normal_path, _ = choose_prompt(
+            prompts,
+            "\u767d\u756a\u8304\u70df\u9170\u80fa\u54ea\u4e2a\u724c\u5b50\u597d",
+            config,
+        )
+        collagen_path, _ = choose_prompt(
+            prompts,
+            "\u957f\u671f\u71ac\u591c\u9009\u54ea\u6b3e\u80f6\u539f\u86cb\u767d\u80bd"
+            "\u53ef\u4ee5\u6539\u5584",
+            config,
+        )
+        cycle_path, _ = choose_prompt(
+            prompts,
+            "\u80f6\u539f\u86cb\u767d\u80bd\u559d\u591a\u4e45\u6709\u6548\u679c",
+            config,
+        )
+
+        self.assertFalse(normal_path.name.startswith(("08_", "09_")))
+        self.assertTrue(collagen_path.name.startswith("08_"))
+        self.assertTrue(cycle_path.name.startswith("09_"))
 
     def test_structure_headings_follow_project_instead_of_hardcoded_product(self) -> None:
         config = {

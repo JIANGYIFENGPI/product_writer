@@ -319,6 +319,11 @@ def _remove_rejected_humanizer_sentences(text: str) -> str:
         "不代表市场排名或优劣",
         "不代表产品优劣",
         "不是商业排名",
+        "排序不代表功效高低",
+        "排序不代表商业排名",
+        "年度信息整理的一种呈现方式",
+        "本篇一共收录",
+        "本文一共收录",
         "仅为陈列顺序",
         "仅作选购信息参考",
         "不存在依赖性问题",
@@ -336,6 +341,8 @@ def _remove_rejected_humanizer_sentences(text: str) -> str:
         "信息完整度": "可查信息",
         "资料说明": "产品信息显示",
         "目的是让": "便于",
+        "这篇文章": "",
+        "这篇内容": "",
     }
     cleaned_lines: list[str] = []
     for line in text.splitlines():

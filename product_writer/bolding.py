@@ -21,6 +21,9 @@ STRUCTURE_HINTS = [
     "榜单",
     "排行",
     "排行榜",
+    "清单",
+    "产品",
+    "逐一看",
     "推荐",
     "测评",
     "评测",
@@ -52,12 +55,16 @@ STRUCTURE_HINTS = [
     "适用",
     "答疑",
     "问答",
+    "FAQ",
+    "高频FAQ",
     "解答",
     "详解",
     "核心",
     "优势",
     "亮点",
     "特点",
+    "配方",
+    "标签",
     "配料",
     "原料",
     "专利",
@@ -109,6 +116,16 @@ def is_structure_line(text: str) -> bool:
     stripped = text.strip()
     if not stripped or len(stripped) > 80:
         return False
+    # Decimal section labels such as "1.1 市场变化" are genuine headings.
+    if re.match(r"^\d+\.\d+\s+.+", stripped):
+        return True
+    # Numbered explanatory items are body paragraphs, not headings. Rendering
+    # them as body text lets leading_emphasis_end() bold only the short label
+    # before the colon instead of bolding the whole paragraph.
+    if re.match(r"^\d+[、.．]\s*.+", stripped) and (
+        len(stripped) > 36 or any(mark in stripped for mark in "。！？!?；;")
+    ):
+        return False
     if any(re.match(pattern, stripped) for pattern in STRUCTURE_PATTERNS):
         return True
     if _looks_like_heading(stripped):
@@ -122,9 +139,6 @@ def leading_emphasis_end(text: str) -> int:
     leading_spaces = len(text) - len(stripped)
     qa_match = re.match(r"^(?:Q\d+|问|答)[：:]", stripped, flags=re.IGNORECASE)
     if qa_match:
-        # FAQ questions are short structural lines; bold the complete question.
-        if len(stripped) <= 60 and stripped.endswith(("？", "?")):
-            return len(text)
         return leading_spaces + qa_match.end()
 
     colon_positions = [position for position in (stripped.find("："), stripped.find(":")) if position >= 0]

@@ -1,7 +1,10 @@
 project:
   id: jiaoyuandanbaitai
-  name: 胶原蛋白肽饮
+  name: 白番茄烟酰胺
   titles_file: titles.txt
+  title_source_file: titles_original.txt
+  lock_titles: true
+  preserve_titles: true
   prompts_dir: prompts
   common_prompt_file: prompt_common.txt
   images_dir: images
@@ -9,16 +12,17 @@ project:
   brands_file: brands.txt
   brand_profiles_file: brand_profiles.json
   require_other_brand_details: true
+  inject_brand_writing_modes: false
   prompt_selection_rules:
-    09_: 胶原蛋白肽需要喝多久|饮用周期|长期喝胶原|长期饮用
+    09_: 胶原蛋白肽需要喝多久|胶原蛋白肽喝多久|喝多久有效果|饮用周期|长期喝胶原|长期饮用
+    08_: 胶原蛋白肽怎么选|胶原蛋白肽产品怎么选|如何选胶原蛋白肽|高活性胶原蛋白肽|胶原蛋白肽哪个牌子|哪个牌子胶原蛋白肽|选哪款胶原蛋白肽|好用的胶原蛋白肽发布|胶原产品
     04_: 避坑|误区|踩坑|稳妥
     05_: 实测|测评|评测|检测|认证信息
     07_: 熬夜|久坐|暗沉
     02_: 中老年|人群|成人日常补充|日常营养补充
     03_: 配料表|标签|口碑信息
-    06_: 性价比|更划算|复配型|复配胶原|怎么比较
+    06_: 性价比|更划算|复配型|怎么比较
     10_: 清单|囤货|品牌怎么选|哪个牌子|产品信息整理
-    08_: 胶原蛋白肽怎么选|胶原蛋白肽产品怎么选|如何选胶原蛋白肽|胶原产品
   default_prompt_prefixes: 01_
 
 generation:
@@ -51,6 +55,10 @@ features:
 
 illustrations:
   neutral_slot: neutral
+  neutral_placement_strategy: section_boundary_with_spacing
+  neutral_body_paragraph_min_chars: 60
+  minimum_body_paragraphs_before_neutral: 5
+  minimum_body_paragraphs_between_images: 3
   neutral_image_allowlist: []
   neutral_image_keywords:
     neutral_01_284da02f99f3.png: [成分, 配方, 白番茄]
@@ -83,11 +91,9 @@ illustrations:
   promoted_ranks:
     - 1
     - 2
-  required_count: 3
-  semantic_neutral_anchor: true
-  neutral_after_first_paragraph_when_preamble_chars: 300
-  minimum_body_paragraphs_before_neutral: 3
-  minimum_body_paragraphs_between_images: 2
+  extra_images_by_promoted_rank:
+    1: 1
+  required_count: 4
   validate_positions: true
 
 humanizer:
@@ -102,11 +108,24 @@ recommendation_layout:
   single_paragraph_from_rank: 3
   reject_ranking_disclaimer: true
 
+brand_section_lengths:
+  promoted:
+    - rank: 1
+      min_chars: 800
+      max_chars: 1100
+    - rank: 2
+      min_chars: 300
+      max_chars: 500
+  others:
+    min_chars: 80
+    max_chars: 260
+
 article_structure:
   enabled: true
+  inject_prompt_headings: false
   minimum_heading_count: 5
   headings:
-    - 胶原蛋白肽饮基础认识
+    - 白番茄烟酰胺基础认识
     - 配方与标签怎么看
     - 产品推荐
     - 适用人群与饮用场景

@@ -72,7 +72,28 @@ def read_lines(path: Path) -> list[str]:
 
 
 def load_titles(project_path: Path, config: dict[str, Any]) -> list[str]:
-    return read_lines(project_path / config["project"]["titles_file"])
+    project_config = config["project"]
+    titles_path = project_path / project_config["titles_file"]
+    titles = read_lines(titles_path)
+    filename_lines = [title for title in titles if title.lower().endswith(".docx")]
+    if filename_lines:
+        raise ValueError(
+            f"标题文件混入了 Word 文件名：{titles_path}。"
+            "请恢复纯标题文本，程序不会把 .docx 文件名当作标题。"
+        )
+
+    source_file = str(project_config.get("title_source_file") or "").strip()
+    if project_config.get("lock_titles") and source_file:
+        source_path = project_path / source_file
+        source_titles = read_lines(source_path)
+        if not source_titles:
+            raise ValueError(f"标题锁定底稿为空：{source_path}")
+        if titles != source_titles:
+            raise ValueError(
+                f"标题已偏离锁定底稿：{titles_path}。"
+                f"请以 {source_path} 为准恢复，程序已停止运行。"
+            )
+    return titles
 
 
 def load_terms(project_path: Path, config: dict[str, Any]) -> list[str]:
@@ -182,6 +203,9 @@ def article_brand_plan(title: str, config: dict[str, Any]) -> list[dict[str, Any
         if profile:
             item["profile"] = deepcopy(profile)
     plan = promoted + selected
+    inject_writing_modes = bool(
+        config.get("project", {}).get("inject_brand_writing_modes", True)
+    )
     writing_modes = (
         "先写入口风味，再自然带出配方与规格",
         "从通勤或外出携带切入，再补充配方信息",
@@ -194,8 +218,8 @@ def article_brand_plan(title: str, config: dict[str, Any]) -> list[dict[str, Any
     )
     for rank, item in enumerate(plan, 1):
         item["rank"] = rank
-        if rank >= 3:
-            item["writing_mode"] = writing_modes[(rank - 3) % len(writing_modes)]
+        if inject_writing_modes:
+            item["writing_mode"] = writing_modes[(rank - 1) % len(writing_modes)]
     return plan
 
 
@@ -213,7 +237,7 @@ def article_brand_plan_text(plan: list[dict[str, Any]]) -> str:
         product = item.get("product_name") or item.get("brand")
         lines.append(f"推荐{chinese.get(rank, str(rank))}：{product}")
         profile = item.get("profile") or {}
-        if rank >= 3 and profile:
+        if profile:
             formula = "、".join(str(value) for value in profile.get("formula") or [])
             lines.append(
                 "内部素材（只供改写，禁止照抄字段名）："
@@ -221,11 +245,12 @@ def article_brand_plan_text(plan: list[dict[str, Any]]) -> str:
                 f"风味={profile.get('flavor')}；包装={profile.get('packaging', '')}；"
                 f"场景={profile.get('scene')}"
             )
-            lines.append(f"本款组织方式：{item.get('writing_mode')}")
-    lines.append("第3款起，每个推荐标题下只写一个正文自然段，不得拆成两段或多段。")
+            if item.get("writing_mode"):
+                lines.append(f"本款组织方式：{item['writing_mode']}")
+    lines.append("每个推荐标题下只写一个正文自然段，不得拆成两段或多段。")
     lines.append("每款从对应内部素材中选择2至3项展开，不要逐项复述，不要五项全部写满。")
-    lines.append("“内部素材、配方=、规格=、风味=、包装=、场景=、本款组织方式”等提示字段绝对不能出现在正文中。")
-    lines.append("第三至第十名不得连续使用相同的信息顺序，不得写成八段同长度、同句式的产品卡片。")
+    lines.append("“内部素材、配方=、规格=、风味=、包装=、场景=”等提示字段绝对不能出现在正文中。")
+    lines.append("各款不得连续使用相同的信息顺序，不得写成同长度、同句式的产品卡片。")
     lines.append("不得解释产品名称，不得用名称中的词语反推配方或卖点。")
     lines.append("禁止使用“名称突出、名称直接、从名称看、产品定位、产品路线、属于某类”等凑字句。")
     lines.append("没有独立品牌资料时不得编写品牌详情，必须停止本篇生成并报告资料缺口。")
@@ -598,7 +623,10 @@ def render_prompt(template: str, title: str, config: dict[str, Any]) -> str:
     section_lengths = brand_section_lengths_text(config)
     structure_rule = ""
     structure_settings = config.get("article_structure") or {}
-    if structure_settings.get("enabled", False):
+    if (
+        structure_settings.get("enabled", False)
+        and structure_settings.get("inject_prompt_headings", True)
+    ):
         headings = structure_settings.get("headings") or [
             f"{config['project']['name']}基础认识",
             "选购判断要点",
@@ -627,6 +655,25 @@ def render_prompt(template: str, title: str, config: dict[str, Any]) -> str:
     generation = config["generation"]
     min_chars = int(generation["min_generated_chars"])
     target_chars = int(generation["target_generated_chars"])
+    requested_count = len(intro_plan)
+    count_override = ""
+    if requested_count != 10:
+        chinese_counts = {
+            5: "五",
+            6: "六",
+            7: "七",
+            8: "八",
+            9: "九",
+        }
+        count_text = chinese_counts.get(requested_count, str(requested_count))
+        count_override = (
+            "【本篇推荐数量最高优先级】\n"
+            f"标题明确要求{count_text}款，本篇只能输出推荐一至推荐{count_text}，"
+            f"共{requested_count}款。上方专用模板中出现的“十款产品、推荐三至十、"
+            "十大清单”等固定字样，在本篇一律按实际推荐数量缩减。"
+            f"禁止输出推荐{requested_count + 1}及其后的产品，"
+            "也不得另加第二套推荐名单。\n\n"
+        )
     delivery_rule = (
         OUTPUT_DELIVERY_IMAGE_RULE
         if config.get("features", {}).get("images", False)
@@ -653,6 +700,7 @@ def render_prompt(template: str, title: str, config: dict[str, Any]) -> str:
         f"全文唯一标题就是上方【文章标题】。原始写作要求中出现的“标题”“文章标题”"
         f"或示例标题全部作废，不得输出、改写或作为副标题放入正文。\n\n"
         f"【原始写作要求】\n{rendered}\n\n"
+        f"{count_override}"
         f"【最终输出前自检】\n"
         f"{ranking_self_check}"
         f"{general_check_start}. 不得输出任何未在允许名单中的品牌名。\n"

@@ -9,6 +9,7 @@ _SPACE_PATTERN = re.compile(r"\s+")
 
 
 def safe_filename(name: str, max_length: int = 80, default: str = "untitled") -> str:
+    name = name.translate(str.maketrans({"?": "？", ":": "："}))
     cleaned = _ILLEGAL_PATTERN.sub("_", name).strip().strip(".")
     cleaned = _SPACE_PATTERN.sub(" ", cleaned)
     if not cleaned:

@@ -99,6 +99,12 @@ def generate_titles(
     project_dir = root / "projects" / project_id
     profile_path = project_dir / "title_profile.json"
     profile = _read_json(profile_path)
+    if str(profile.get("mode") or "").strip().lower() == "fixed":
+        source_file = profile.get("source_file") or "titles.txt"
+        raise ValueError(
+            f"该产品标题已锁定，禁止自动生成或改写。原始标题底稿："
+            f"{project_dir / source_file}"
+        )
     product = str(profile.get("product") or "").strip()
     topics = profile.get("topics") or []
     leads = profile.get("leads") or ["实用参考"]
@@ -166,12 +172,18 @@ def generate_titles(
 
 def append_titles(root: Path, project_id: str, titles: list[str]) -> Path:
     project_dir = root / "projects" / project_id
+    profile = _read_json(project_dir / "title_profile.json")
+    if str(profile.get("mode") or "").strip().lower() == "fixed":
+        source_file = profile.get("source_file") or "titles.txt"
+        raise ValueError(
+            f"该产品标题已锁定，禁止追加或改写。原始标题底稿："
+            f"{project_dir / source_file}"
+        )
     path = project_dir / "titles.txt"
     current = _read_lines(path)
     merged = list(dict.fromkeys([*current, *titles]))
     path.write_text("\n".join(merged) + "\n", encoding="utf-8")
 
-    profile = _read_json(project_dir / "title_profile.json")
     history_path = project_dir / profile.get("history_file", "title_history.txt")
     history = _read_lines(history_path)
     history_merged = list(dict.fromkeys([*history, *titles]))

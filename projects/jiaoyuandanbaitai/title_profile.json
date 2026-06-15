@@ -1,6 +1,8 @@
 {
   "version": 1,
-  "product": "胶原蛋白肽饮",
+  "mode": "fixed",
+  "source_file": "titles_original.txt",
+  "product": "白番茄烟酰胺",
   "samples_file": "title_samples.txt",
   "history_file": "title_history.txt",
   "audiences": [
@@ -21,11 +23,11 @@
   ],
   "topics": [
     {
-      "question": "胶原蛋白肽饮怎么选",
-      "angle": "配料、剂型与产品规格"
+      "question": "白番茄烟酰胺怎么选",
+      "angle": "白番茄、烟酰胺、配料与产品规格"
     },
     {
-      "question": "胶原蛋白肽口服液怎么比较",
+      "question": "白番茄烟酰胺口服液怎么比较",
       "angle": "饮用安排与长期成本"
     }
   ]

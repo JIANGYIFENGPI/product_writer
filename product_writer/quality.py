@@ -197,6 +197,11 @@ RANKING_DISCLAIMER_PROBES = [
     "不是商业排名",
     "仅为陈列顺序",
     "仅作选购信息参考",
+    "排序不代表功效高低",
+    "排序不代表商业排名",
+    "年度信息整理的一种呈现方式",
+    "本篇一共收录",
+    "本文一共收录",
 ]
 PRODUCT_EDITORIAL_PROBES = [
     "资料中标出",
@@ -782,19 +787,122 @@ def docx_illustration_warnings(path: Path, config: dict[str, Any]) -> list[str]:
         first_rank = promoted_ranks[0]
         if first_rank not in top_indices or image_indices[0] >= top_indices[first_rank]:
             warnings.append("通用图必须位于首个主推产品详情之前")
-        minimum_before = int(settings.get("minimum_body_paragraphs_before_neutral") or 2)
         body_before = sum(
             1
             for paragraph in paragraphs[1:image_indices[0]]
-            if article_char_count(paragraph.text) >= 40
+            if len(paragraph.text.strip())
+            >= int(settings.get("neutral_body_paragraph_min_chars") or 80)
         )
-        if body_before < minimum_before:
-            warnings.append(
-                f"标题与通用图之间正文段落不足：{body_before} < {minimum_before}"
+        cover_target = int(settings.get("cover_after_body_paragraphs") or 0)
+        strategy = str(
+            settings.get("neutral_placement_strategy")
+            or (
+                "fixed_body_count"
+                if cover_target > 0
+                else "section_boundary_with_spacing"
             )
-        for image_slot, rank in enumerate(promoted_ranks, 1):
+        ).strip()
+        if strategy == "section_boundary_with_spacing":
+            minimum_before = int(
+                settings.get("minimum_body_paragraphs_before_neutral") or 5
+            )
+            if body_before < minimum_before:
+                warnings.append(
+                    f"标题与通用图之间完整正文段落不足："
+                    f"{body_before} < {minimum_before}"
+                )
+            previous_text = paragraphs[image_indices[0] - 1].text.strip()
+            next_text = paragraphs[image_indices[0] + 1].text.strip()
+            following_text = (
+                paragraphs[image_indices[0] + 2].text.strip()
+                if image_indices[0] + 2 < len(paragraphs)
+                else ""
+            )
+            contextual_boundary = bool(
+                2 <= len(next_text) <= 36
+                and not any(mark in next_text for mark in "。！？!?；;")
+                and len(following_text)
+                >= int(settings.get("neutral_body_paragraph_min_chars") or 60)
+            )
+            if (
+                not previous_text
+                or not next_text
+                or not (is_structure_line(next_text) or contextual_boundary)
+            ):
+                warnings.append("通用图必须放在完整章节边界，下一段应为结构标题")
+        elif strategy == "balanced_body_with_spacing":
+            minimum_before = int(
+                settings.get("minimum_body_paragraphs_before_neutral") or 2
+            )
+            if body_before < minimum_before:
+                warnings.append(
+                    f"标题与通用图之间完整正文段落不足："
+                    f"{body_before} < {minimum_before}"
+                )
+        elif strategy == "first_body_with_spacing":
+            minimum_chars = int(
+                settings.get("neutral_body_paragraph_min_chars") or 80
+            )
+            pre_detail_body = [
+                paragraph
+                for paragraph in paragraphs[1:top_indices[first_rank]]
+                if len(paragraph.text.strip()) >= minimum_chars
+            ]
+            long_preamble_chars = int(
+                settings.get("neutral_after_first_paragraph_when_preamble_chars")
+                or 300
+            )
+            minimum_between = int(
+                settings.get("minimum_body_paragraphs_between_images") or 2
+            )
+            expected_before = int(
+                len(pre_detail_body) >= minimum_between + 1
+                and sum(len(paragraph.text.strip()) for paragraph in pre_detail_body)
+                >= long_preamble_chars
+            )
+            if body_before != expected_before:
+                warnings.append(
+                    "通用图未按开篇长度放置："
+                    f"当前图前有{body_before}个完整正文段，"
+                    f"应为{expected_before}个"
+                )
+        elif cover_target > 0:
+            if body_before != cover_target:
+                warnings.append(
+                    f"封面图必须位于前{cover_target}个完整正文段之后："
+                    f"当前图前有{body_before}个正文段"
+                )
+        else:
+            minimum_before = int(settings.get("minimum_body_paragraphs_before_neutral") or 2)
+            if body_before < minimum_before:
+                warnings.append(
+                    f"标题与通用图之间正文段落不足：{body_before} < {minimum_before}"
+                )
+        image_slot = 1
+        for rank in promoted_ranks:
             if rank not in top_indices or image_indices[image_slot] != top_indices[rank] + 1:
                 warnings.append(f"第{rank}名产品图必须紧跟对应产品标题")
+            extra_counts = settings.get("extra_images_by_promoted_rank") or {}
+            extra_count = int(extra_counts.get(rank, extra_counts.get(str(rank), 0)))
+            if extra_count:
+                extra_indices = image_indices[image_slot + 1:image_slot + 1 + extra_count]
+                next_rank_indices = [
+                    index
+                    for later_rank, index in top_indices.items()
+                    if later_rank > rank
+                ]
+                section_end = min(next_rank_indices, default=len(paragraphs))
+                for extra_index in extra_indices:
+                    body_before_extra = [
+                        index
+                        for index in range(image_indices[image_slot] + 1, extra_index)
+                        if article_char_count(paragraphs[index].text) >= 80
+                    ]
+                    if not body_before_extra or extra_index >= section_end:
+                        warnings.append(
+                            f"第{rank}名的补充产品图必须放在该产品首个详细正文段之后"
+                        )
+            image_slot += 1 + extra_count
         minimum = int(settings.get("minimum_body_paragraphs_between_images") or 2)
         body_between = sum(
             1

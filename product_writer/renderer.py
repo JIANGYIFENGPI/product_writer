@@ -227,14 +227,184 @@ def neutral_image_anchor(
     config: dict[str, Any],
     neutral_image: Path | None = None,
 ) -> tuple[str, int]:
-    """Choose an early generic-image position without crowding the TOP1 image.
+    """Choose the neutral-image position before the first promoted product.
 
     Returns ("after", block_index) or ("before", block_index).
     """
-    if first_detail_index is None:
+    settings = config.get("illustrations") or {}
+    configured_strategy = settings.get("neutral_placement_strategy")
+    strategy = str(
+        configured_strategy
+        or (
+            "fixed_body_count"
+            if int(settings.get("cover_after_body_paragraphs") or 0) > 0
+            else "section_boundary_with_spacing"
+        )
+    ).strip()
+    if strategy == "section_boundary_with_spacing":
+        if first_detail_index is None:
+            return ("after", 0)
+        minimum_chars = int(
+            settings.get("neutral_body_paragraph_min_chars") or 60
+        )
+        min_before = int(
+            settings.get("minimum_body_paragraphs_before_neutral") or 5
+        )
+        min_after = int(
+            settings.get("minimum_body_paragraphs_between_images") or 3
+        )
+        body_indices = [
+            index
+            for index, block in enumerate(blocks[:first_detail_index])
+            if len(strip_markdown_bold(block).strip()) >= minimum_chars
+            and not is_structure_line(strip_markdown_bold(block))
+        ]
+        boundaries: list[tuple[int, int, int]] = []
+        for position, index in enumerate(body_indices):
+            paragraphs_before = position + 1
+            paragraphs_after = len(body_indices) - paragraphs_before
+            if paragraphs_before < min_before:
+                continue
+            next_index = index + 1
+            while next_index < first_detail_index and not blocks[next_index].strip():
+                next_index += 1
+            next_plain = (
+                strip_markdown_bold(blocks[next_index]).strip()
+                if next_index < first_detail_index
+                else ""
+            )
+            following_plain = (
+                strip_markdown_bold(blocks[next_index + 1]).strip()
+                if next_index + 1 < first_detail_index
+                else ""
+            )
+            contextual_boundary = bool(
+                2 <= len(next_plain) <= 36
+                and not any(mark in next_plain for mark in "。！？!?；;")
+                and len(following_plain) >= minimum_chars
+                and explicit_product_ranking_number(next_plain) is None
+            )
+            if (
+                next_index < first_detail_index
+                and (
+                    is_structure_line(next_plain)
+                    or _configured_structure_line(next_plain, config)
+                    or contextual_boundary
+                )
+            ):
+                boundaries.append((position, index, paragraphs_after))
+        eligible = [
+            (position, index)
+            for position, index, paragraphs_after in boundaries
+            if paragraphs_after >= min_after
+        ]
+        if eligible:
+            target = max(min_before - 1, int((len(body_indices) - 1) * 0.6))
+            _, selected = min(
+                eligible,
+                key=lambda item: (abs(item[0] - target), -item[0]),
+            )
+            return ("after", selected)
+        if boundaries:
+            _, selected, _ = max(boundaries, key=lambda item: item[2])
+            return ("after", selected)
+        return ("before", first_detail_index)
+    if strategy == "balanced_body_with_spacing":
+        if first_detail_index is None:
+            return ("after", 0)
+        minimum_chars = int(
+            settings.get("neutral_body_paragraph_min_chars") or 80
+        )
+        min_before = int(
+            settings.get("minimum_body_paragraphs_before_neutral") or 2
+        )
+        min_after = int(
+            settings.get("minimum_body_paragraphs_between_images")
+            or DEFAULT_MIN_PARAGRAPHS_BETWEEN_IMAGES
+        )
+        body_indices = [
+            index
+            for index, block in enumerate(blocks[:first_detail_index])
+            if len(strip_markdown_bold(block).strip()) >= minimum_chars
+            and not is_structure_line(strip_markdown_bold(block))
+        ]
+        if len(body_indices) >= min_before + min_after:
+            latest_position = len(body_indices) - min_after - 1
+            target_position = min(
+                latest_position,
+                max(min_before - 1, (len(body_indices) - 1) // 2),
+            )
+            return ("after", body_indices[target_position])
+        if len(body_indices) >= min_before:
+            return ("after", body_indices[min_before - 1])
+        if body_indices:
+            return ("after", body_indices[-1])
+        return ("after", 0)
+    if strategy == "first_body_with_spacing":
+        if first_detail_index is None:
+            return ("after", 0)
+        minimum_chars = int(
+            settings.get("neutral_body_paragraph_min_chars") or 80
+        )
+        long_preamble_chars = int(
+            settings.get("neutral_after_first_paragraph_when_preamble_chars")
+            or DEFAULT_LONG_PREAMBLE_CHARS
+        )
+        min_paragraphs = int(
+            settings.get("minimum_body_paragraphs_between_images")
+            or DEFAULT_MIN_PARAGRAPHS_BETWEEN_IMAGES
+        )
+        body_indices = [
+            index
+            for index, block in enumerate(blocks[:first_detail_index])
+            if len(strip_markdown_bold(block).strip()) >= minimum_chars
+            and not is_structure_line(strip_markdown_bold(block))
+        ]
+        preamble_chars = sum(
+            len(strip_markdown_bold(blocks[index]).strip())
+            for index in body_indices
+        )
+        if (
+            body_indices
+            and len(body_indices) >= min_paragraphs + 1
+            and preamble_chars >= long_preamble_chars
+        ):
+            return ("after", body_indices[0])
+        if body_indices:
+            return ("before", body_indices[0])
         return ("after", 0)
 
-    settings = config.get("illustrations") or {}
+    configured_target = int(settings.get("cover_after_body_paragraphs") or 0)
+    if configured_target > 0:
+        search_end = first_detail_index if first_detail_index is not None else len(blocks)
+        minimum_chars = max(
+            40,
+            int(settings.get("cover_body_paragraph_min_chars") or 80),
+        )
+        body_indices: list[int] = []
+        for index, block in enumerate(blocks[:search_end]):
+            plain = strip_markdown_bold(block).strip()
+            if len(plain) < minimum_chars:
+                continue
+            if is_structure_line(plain):
+                continue
+            if explicit_product_ranking_number(plain) is not None:
+                continue
+            body_indices.append(index)
+            if len(body_indices) >= configured_target:
+                return ("after", index)
+
+        if body_indices:
+            return ("after", body_indices[-1])
+        for index, block in enumerate(blocks[:search_end]):
+            plain = strip_markdown_bold(block).strip()
+            if plain and not is_structure_line(plain):
+                return ("after", index)
+        return ("after", 0)
+
+    # Optional legacy semantic placement strategy.
+    if first_detail_index is None:
+        return ("after", 0)
     long_preamble_chars = int(
         settings.get("neutral_after_first_paragraph_when_preamble_chars")
         or DEFAULT_LONG_PREAMBLE_CHARS
@@ -279,7 +449,6 @@ def neutral_image_anchor(
             best_indices = [index for score, index in scored if score == best_score]
             return ("after", best_indices[0])
 
-    # 没有语义命中时放在前置内容中段，避免贴着标题形成封面图效果。
     if (
         body_indices
         and len(body_indices) >= min_before + min_paragraphs
@@ -290,8 +459,6 @@ def neutral_image_anchor(
             len(body_indices) - min_paragraphs - 1,
         )
         return ("after", body_indices[target_position])
-
-    # 前文较短时也不放在标题后，优先跟随最后一个可用正文段。
     if body_indices:
         return ("after", body_indices[-1])
     return ("after", 0)
@@ -405,25 +572,36 @@ def render_docx(
     )
 
     in_qa_section = False
+    inserted_extra_ranks: set[int] = set()
     for index, block in enumerate(blocks):
         if neutral_position == ("before", index) and article_images.neutral:
             add_picture_paragraph(doc, article_images.neutral)
         plain_block = strip_markdown_bold(block)
         configured_heading = _configured_structure_line(plain_block, config)
-        structure_heading = is_structure_line(plain_block) or configured_heading
+        next_plain = (
+            strip_markdown_bold(blocks[index + 1]).strip()
+            if index + 1 < len(blocks)
+            else ""
+        )
+        contextual_heading = bool(
+            2 <= len(plain_block.strip()) <= 36
+            and not any(mark in plain_block for mark in "。！？!?；;")
+            and len(next_plain) >= 60
+            and not explicit_product_ranking_number(plain_block)
+        )
+        structure_heading = (
+            is_structure_line(plain_block)
+            or configured_heading
+            or contextual_heading
+        )
         if structure_heading:
             if any(marker in plain_block for marker in ("常见问题", "答疑", "问答")):
                 in_qa_section = True
             elif any(marker in plain_block for marker in ("总结", "结语", "写在最后")):
                 in_qa_section = False
-        qa_heading = bool(
-            in_qa_section
-            and len(plain_block.strip()) <= 40
-            and plain_block.strip().endswith(("？", "?"))
-        )
         bold_all = bool(
             config["features"].get("bold_structure", True)
-            and (structure_heading or qa_heading)
+            and structure_heading
         )
         add_plain_paragraph(doc, block, active_terms, bold_all=bold_all)
         if neutral_position == ("after", index) and article_images.neutral:
@@ -431,6 +609,18 @@ def render_docx(
         for rank in (1, 2, 3):
             if detail_anchors.get(rank) == index and rank in article_images.by_rank:
                 add_picture_paragraph(doc, article_images.by_rank[rank])
+        for rank, extra_images in article_images.extra_by_rank.items():
+            if not extra_images or rank in inserted_extra_ranks:
+                continue
+            anchor = detail_anchors.get(rank)
+            if anchor is None or index <= anchor:
+                continue
+            plain = strip_markdown_bold(block).strip()
+            if is_structure_line(plain) or len(plain) < 80:
+                continue
+            for image_path in extra_images:
+                add_picture_paragraph(doc, image_path)
+            inserted_extra_ranks.add(rank)
 
     for paragraph in doc.paragraphs:
         set_para(paragraph)
